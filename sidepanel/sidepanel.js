@@ -12,10 +12,14 @@ import {
   renameSession,
   saveGlobalNoteContent,
   saveSessionContent,
+  getTrackingSettings,
+  setDeepDiveTracking,
+  setTrackingPaused,
 } from '../lib/storage.js';
 
 const app = document.querySelector('#app');
 const panelPort = chrome.runtime.connect({ name: 'tangent-panel' });
+const inIncognitoContext = Boolean(chrome.extension?.inIncognitoContext);
 const state = {
   mode: 'global',
   view: 'editor',
@@ -24,6 +28,9 @@ const state = {
   menuOpen: false,
   sessionContextExpanded: false,
   recordingActive: false,
+  deepDiveTracking: false,
+  trackingPaused: false,
+  inIncognitoContext,
 };
 
 function publishPanelState() {
@@ -31,6 +38,7 @@ function publishPanelState() {
     type: 'panel-state',
     mode: state.mode,
     sessionId: state.mode === 'sessions' ? state.currentSession?.id ?? null : null,
+    inIncognito: state.inIncognitoContext,
   });
 }
 
@@ -41,13 +49,26 @@ panelPort.onMessage.addListener((message) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' || !changes.sessions || !state.currentSession) return;
-  const updatedSession = changes.sessions.newValue?.[state.currentSession.id];
-  if (updatedSession && updatedSession.links.length !== state.currentSession.links.length) {
-    state.currentSession = updatedSession;
-    render();
+  if (areaName !== 'local') return;
+
+  if (changes.sessions && state.currentSession) {
+    const updatedSession = changes.sessions.newValue?.[state.currentSession.id];
+    if (updatedSession && updatedSession.links.length !== state.currentSession.links.length) {
+      state.currentSession = updatedSession;
+      render();
+    }
+  }
+
+  if ((changes.settings || changes.trackingPaused) && state.view === 'settings') {
+    refreshTrackingSettings().then(render);
   }
 });
+
+async function refreshTrackingSettings() {
+  const { settings, trackingPaused } = await getTrackingSettings();
+  state.deepDiveTracking = settings.deepDiveTracking;
+  state.trackingPaused = trackingPaused;
+}
 
 const autosaveGlobalContent = debounce(async (id, content) => {
   const saved = await saveGlobalNoteContent(id, content);
@@ -96,7 +117,7 @@ function menuMarkup() {
     <button class="menu-item" type="button" disabled>Clear Note Text</button>
     <button class="menu-item" type="button" disabled>Delete ${itemName}</button>
     <div class="menu-separator"></div>
-    <button class="menu-item" type="button" disabled>Settings</button>
+    <button class="menu-item" id="settings-button" type="button">Settings</button>
   </div>`;
 }
 
@@ -173,6 +194,28 @@ function sessionsEmptyMarkup() {
   </div></section>`);
 }
 
+function settingsMarkup() {
+  const deepDiveAvailable = !state.inIncognitoContext;
+  const deepDiveActive = deepDiveAvailable && state.deepDiveTracking;
+  const status = state.inIncognitoContext
+    ? 'Off in Incognito'
+    : state.deepDiveTracking ? 'On' : 'Off';
+  const pauseControl = deepDiveActive
+    ? `<button class="text-button settings-control" id="tracking-pause-button" type="button">${state.trackingPaused ? 'Resume tracking' : 'Pause tracking'}</button>`
+    : '';
+
+  return shellMarkup(`<section class="view" aria-label="Settings">
+    <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor">â†</button><span class="view-title">Settings</span></header>
+    <div class="settings-list">
+      <section class="settings-item">
+        <div class="settings-item-header"><span class="settings-label">Deep Dive tracking</span><button class="settings-toggle" id="deep-dive-toggle" type="button" aria-pressed="${deepDiveActive}" ${deepDiveAvailable ? '' : 'disabled'}>${status}</button></div>
+        <p>Keep recording session links even when the panel is closed. Automatically turned off while browsing in Incognito.</p>
+        ${pauseControl}
+      </section>
+    </div>
+  </section>`);
+}
+
 async function showGlobalEditor() {
   await autosaveSessionContent.flush();
   state.mode = 'global';
@@ -213,6 +256,8 @@ function bindShell() {
     state.menuOpen = !state.menuOpen;
     render();
   });
+  const settingsButton = document.querySelector('#settings-button');
+  if (settingsButton) settingsButton.addEventListener('click', showSettings);
 }
 
 function beginTitleEdit({ title, item, label, save }) {
@@ -316,8 +361,44 @@ function bindSessionsEmpty() {
   document.querySelector('#new-session-button').addEventListener('click', createAndOpenSession);
 }
 
+async function showSettings() {
+  if (state.mode === 'global') await autosaveGlobalContent.flush();
+  else await autosaveSessionContent.flush();
+  state.view = 'settings';
+  state.menuOpen = false;
+  await refreshTrackingSettings();
+  await render();
+}
+
+function bindSettings() {
+  document.querySelector('#settings-back-button').addEventListener('click', async () => {
+    state.view = 'editor';
+    await render();
+  });
+  const deepDiveToggle = document.querySelector('#deep-dive-toggle');
+  if (!deepDiveToggle.disabled) {
+    deepDiveToggle.addEventListener('click', async () => {
+      await setDeepDiveTracking(!state.deepDiveTracking);
+      await refreshTrackingSettings();
+      await render();
+    });
+  }
+  const pauseButton = document.querySelector('#tracking-pause-button');
+  if (pauseButton) {
+    pauseButton.addEventListener('click', async () => {
+      await setTrackingPaused(!state.trackingPaused);
+      await refreshTrackingSettings();
+      await render();
+    });
+  }
+}
+
 async function render() {
-  if (state.mode === 'global') {
+  if (state.view === 'settings') {
+    app.innerHTML = settingsMarkup();
+    bindShell();
+    bindSettings();
+  } else if (state.mode === 'global') {
     if (state.view === 'list') {
       app.innerHTML = globalListMarkup(await getGlobalNotes());
       bindShell();
@@ -345,6 +426,7 @@ async function render() {
 
 async function initialize() {
   state.currentNote = await ensureInitialGlobalNote();
+  await refreshTrackingSettings();
   await render();
 }
 

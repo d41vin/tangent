@@ -1,37 +1,38 @@
-# Handoff
-
-This file is overwritten at the end of every session. Git history preserves prior handoffs.
+# Tangent - Handoff
 
 ## Status
 
-Session 3 implementation is complete: Phases 7-8 are built.
+Session 4 implementation is complete: Phases 9-10 are built. The required live Chrome Incognito side-panel rendering check remains for the user to perform.
 
 ## What was built this session
 
-- The MV3 background tracking engine. Its tabs.onUpdated, tabs.onActivated, and windows.onFocusChanged listeners are all registered synchronously at background.js module evaluation, so Chrome can wake a suspended worker for a later event.
-- Tracking is restricted to a fully loaded active tab in the OS-focused window. It allows only HTTP(S) URLs, removes the brief's tracking-parameter denylist and fragments, and deduplicates links per session.
-- Link appends include URL, page title, and visit time, update the session timestamp, and are serialized through a worker-local promise queue so overlapping activation/loading events cannot race into duplicate writes. Each queued append re-reads the active session from chrome.storage.local.
-- The side panel opens one named long-lived runtime port. It reports whether it is showing a Session and which session is visible; the background uses live connected ports as the only panel-open source of truth and removes each port on disconnect. Global Notes panels do not enable recording.
-- The Session editor's Recording affordance now reflects the real default-mode gate. It also refreshes its context link count when a background append arrives.
-- Creating a session explicitly requests capture of the currently focused, fully loaded tab after its port state is published, so the page being viewed becomes the first context link.
+- Persisted Deep Dive settings in `chrome.storage.local`: `settings.deepDiveTracking` (off by default) and a separate `trackingPaused` flag. Pausing does not overwrite the user's Deep Dive preference, so it survives service-worker/browser restarts.
+- A Settings view reachable from the existing kebab menu. It provides the Deep Dive toggle and, when enabled in a regular window, a Pause tracking / Resume tracking control.
+- A static green toolbar badge (`dot`) while Deep Dive is actively recording with every Tangent panel closed. The badge is cleared when a panel is open, Deep Dive is paused/off, there is no active session, or the focused tab is Incognito.
+- The background tracking gate now applies Deep Dive only to non-Incognito tabs. Incognito tabs always fall back to the existing visible panel-driven gate, even if the persisted Deep Dive setting is enabled and unpaused.
+- In an Incognito side panel, Settings presents Deep Dive as `Off in Incognito`, disables its control, and hides the pause/resume control. The stored regular-window preference is deliberately unchanged and becomes effective again in a normal window.
+- The manifest already declared `"incognito": "spanning"` from Phase 1; it remains in place for the shared background/storage architecture.
 
 ## Decisions made / deviations from the brief
 
-- The panel-state message carries the displayed session ID, not merely a Sessions/Global boolean. This ensures an open stale panel cannot authorize tracking into a session that another panel has since made active.
-- Non-content filtering is implemented as an HTTP(S)-only allowlist, which covers the brief's chrome://, extension, about, and new-tab exclusions without introducing host permissions.
-- Deep Dive, toolbar badges, pause/resume persistence, and Incognito-specific overrides remain intentionally untouched for Phases 9-10.
+- Incognito force-disable is evaluated from the live focused tab's `incognito` flag in the shared spanning service worker. This is necessary because the single service worker itself is not an Incognito-only context.
+- Opening Settings from the Sessions tab retains the active-session panel state, so the existing visible panel-driven tracking continues while Settings is open. Deep Dive's toolbar badge stays hidden while any Tangent panel is open.
+- Settings is the only kebab action enabled so far; the other menu actions intentionally remain stubs for Phase 11.
 
 ## Verification performed
 
-- Parsed all changed ES modules with Node's module parser and ran git diff --check.
-- Ran direct URL utility checks: tracking parameters and fragments are removed while page-defining query parameters survive; malformed and Chrome URLs are rejected; duplicate URLs are rejected.
-- Ran a mocked Chrome background test: simultaneous activation/completion events produced one cleaned link, and a disconnected panel port prevented a subsequent navigation from being recorded.
+- Ran `node --check` on `background/background.js`, `sidepanel/sidepanel.js`, and `lib/storage.js`.
+- Ran `git diff --check`.
+- Ran a mocked Chrome background test covering: normal Deep Dive capture with no panel, Incognito Deep Dive rejection, Incognito capture with an active Session panel, and paused normal Deep Dive rejection.
 
-## Known issues to watch
+## Required manual verification
 
-- The extension still needs its first live Chrome load-unpacked check; this environment cannot access chrome://extensions.
-- Manual tests should cover panel open/close cycles, worker suspension/wake on navigation, back/refresh deduplication, and the new-session initial-tab capture. Exact steps are supplied in this session's completion response.
+1. In `chrome://extensions`, reload Tangent, open Details, and enable **Allow in Incognito**.
+2. Open an Incognito window, open Tangent's side panel from the toolbar, and verify Global Notes and Sessions render and work normally. Create a small Global Note and confirm it is visible in a normal window too (and vice versa).
+3. In a normal window, enable Deep Dive in Tangent Settings. Close every Tangent side panel, visit a unique HTTP(S) page, and confirm reopening the active Session shows that page in its context. The action icon should show a static green dot while the panel is closed.
+4. With that stored setting still on, in an Incognito Tangent panel open Settings and confirm it reads **Off in Incognito** and cannot be enabled or paused/resumed there. Close every Tangent panel in every window, visit a unique HTTP(S) page in Incognito, then reopen the session: that page must not have been recorded and the action icon must have no green dot.
+5. Leave the Incognito Session panel open, navigate to another unique HTTP(S) page, and confirm that page is recorded. This verifies that only Deep Dive is disabled there; visible panel-driven tracking remains available.
 
 ## Next session starts here
 
-Implement Phase 9 first: persisted Deep Dive tracking with pause/resume and a static toolbar badge. Keep all listener registration at top level and preserve the port gate as the default-mode fallback. Then implement Phase 10's Incognito Deep-Dive disable and live side-panel verification.
+Implement Phase 11: wire the remaining kebab actions (Copy All, Download as Markdown, Clear Note Text, and tap-to-confirm delete), while preserving the Settings view introduced in this session. Then complete Phase 12 favicons and Phase 13 pinning.

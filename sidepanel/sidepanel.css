@@ -29,7 +29,7 @@ button { color: inherit; }
 .tab[aria-selected="true"]::after { position: absolute; right: 8px; bottom: 0; left: 8px; height: 1px; background: var(--text); content: ""; }
 .icon-button { width: 30px; height: 30px; border-radius: 4px; color: var(--muted); font-size: 17px; line-height: 1; }
 .icon-button:hover, .text-button:hover, .note-row:hover, .menu-item:hover { background: var(--hover); }
-.icon-button:focus-visible, .tab:focus-visible, .text-button:focus-visible, .note-row:focus-visible, .session-row-main:focus-visible, .context-toggle:focus-visible, .menu-item:focus-visible, .note-title-input:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.icon-button:focus-visible, .tab:focus-visible, .text-button:focus-visible, .note-row:focus-visible, .session-row-main:focus-visible, .context-toggle:focus-visible, .menu-item:focus-visible, .note-title-input:focus-visible, .settings-toggle:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
 .view { display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .view-header { padding: 0 12px; gap: 8px; font-weight: 600; }
 .view-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -65,6 +65,15 @@ button { color: inherit; }
 .menu-item:disabled { color: var(--muted); cursor: default; }
 .menu-separator { height: 1px; margin: 4px; background: var(--border); }
 .menu-hint { padding: 8px 9px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.settings-list { padding: 0 16px; }
+.settings-item { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.settings-item-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.settings-label { font-weight: 600; }
+.settings-item p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.settings-toggle { appearance: none; flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; font-weight: 500; }
+.settings-toggle:hover:not(:disabled) { background: var(--hover); }
+.settings-toggle:disabled { color: var(--muted); cursor: default; }
+.settings-control { margin-top: 12px; }
 
 @keyframes recording-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }

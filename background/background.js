@@ -33,22 +33,61 @@ async function getActiveSessionData() {
   return { sessions, activeSessionId, activeSession: sessions[activeSessionId] ?? null };
 }
 
+async function getTrackingSettings() {
+  const { settings = {}, trackingPaused = false } = await chrome.storage.local.get([
+    'settings',
+    'trackingPaused',
+  ]);
+  return {
+    deepDiveTracking: Boolean(settings.deepDiveTracking),
+    trackingPaused: Boolean(trackingPaused),
+  };
+}
+
 function hasPanelOpenOnActiveSession(activeSessionId) {
   return [...panelPorts.values()].some((panel) => (
     panel.mode === 'sessions' && panel.sessionId === activeSessionId
   ));
 }
 
+async function isTrackingAllowed(tab, activeSessionId, activeSession) {
+  if (!activeSession) return false;
+
+  const { deepDiveTracking, trackingPaused } = await getTrackingSettings();
+  // A spanning service worker handles both profiles, so use the tab's live
+  // Incognito flag instead of the worker's own extension context.
+  if (!tab.incognito && deepDiveTracking && !trackingPaused) return true;
+
+  return hasPanelOpenOnActiveSession(activeSessionId);
+}
+
+async function updateToolbarBadge() {
+  if (!chrome.action) return;
+
+  const tab = await getFocusedActiveTab();
+  if (!tab) return;
+
+  const { activeSession } = await getActiveSessionData();
+  const { deepDiveTracking, trackingPaused } = await getTrackingSettings();
+  const showBadge = Boolean(activeSession)
+    && !tab.incognito
+    && deepDiveTracking
+    && !trackingPaused
+    && panelPorts.size === 0;
+
+  await chrome.action.setBadgeText({ tabId: tab.id, text: showBadge ? '•' : '' });
+  if (showBadge) {
+    await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#22c55e' });
+  }
+}
+
 async function notifyPanelTrackingState() {
   const { activeSessionId, activeSession } = await getActiveSessionData();
-  const recordingAllowed = Boolean(activeSession)
-    && hasPanelOpenOnActiveSession(activeSessionId);
-
   for (const [port, panel] of panelPorts) {
     try {
       port.postMessage({
         type: 'tracking-state',
-        recording: recordingAllowed
+        recording: Boolean(activeSession)
           && panel.mode === 'sessions'
           && panel.sessionId === activeSessionId,
       });
@@ -85,7 +124,7 @@ async function appendFocusedTabToActiveSession(tab) {
 
   return queueLinkWrite(async () => {
     const { sessions, activeSessionId, activeSession } = await getActiveSessionData();
-    if (!activeSession || !hasPanelOpenOnActiveSession(activeSessionId)) return false;
+    if (!await isTrackingAllowed(tab, activeSessionId, activeSession)) return false;
     if (!shouldRecord(activeSession, cleanedUrl)) return false;
 
     const now = Date.now();
@@ -119,33 +158,49 @@ async function recordTabIfStillFocused(tabId) {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'complete') {
-    runSafely('could not record completed navigation', () => recordTabIfStillFocused(tabId));
+    runSafely('could not record completed navigation', async () => {
+      await recordTabIfStillFocused(tabId);
+      await updateToolbarBadge();
+    });
   }
 });
 
 chrome.tabs.onActivated.addListener(() => {
-  runSafely('could not record activated tab', recordFocusedActiveTab);
+  runSafely('could not record activated tab', async () => {
+    await recordFocusedActiveTab();
+    await updateToolbarBadge();
+  });
 });
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    runSafely('could not record focused window tab', recordFocusedActiveTab);
+    runSafely('could not record focused window tab', async () => {
+      await recordFocusedActiveTab();
+      await updateToolbarBadge();
+    });
   }
 });
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== PANEL_PORT_NAME) return;
 
-  panelPorts.set(port, { mode: 'global', sessionId: null });
+  panelPorts.set(port, {
+    mode: 'global',
+    sessionId: null,
+    inIncognito: Boolean(port.sender?.tab?.incognito),
+  });
   runSafely('could not update panel tracking state', notifyPanelTrackingState);
+  runSafely('could not update toolbar badge', updateToolbarBadge);
 
   port.onMessage.addListener((message) => {
     if (message?.type === 'panel-state') {
       panelPorts.set(port, {
         mode: message.mode === 'sessions' ? 'sessions' : 'global',
         sessionId: typeof message.sessionId === 'string' ? message.sessionId : null,
+        inIncognito: message.inIncognito === true,
       });
       runSafely('could not update panel tracking state', notifyPanelTrackingState);
+      runSafely('could not update toolbar badge', updateToolbarBadge);
       return;
     }
 
@@ -157,11 +212,22 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => {
     panelPorts.delete(port);
     runSafely('could not update panel tracking state', notifyPanelTrackingState);
+    runSafely('could not update toolbar badge', updateToolbarBadge);
   });
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && (changes.activeSessionId || changes.sessions)) {
+  if (areaName !== 'local') return;
+
+  if (changes.activeSessionId || changes.sessions) {
     runSafely('could not update panel tracking state', notifyPanelTrackingState);
+  }
+
+  if (changes.activeSessionId || changes.sessions || changes.settings || changes.trackingPaused) {
+    runSafely('could not update toolbar badge', updateToolbarBadge);
+  }
+
+  if (changes.settings || changes.trackingPaused) {
+    runSafely('could not apply changed Deep Dive setting', recordFocusedActiveTab);
   }
 });
