@@ -21,9 +21,9 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 - [x] Phase 10: Incognito support - spanning mode, runtime Deep-Dive-disable check, manual verification the panel renders correctly in an actual Incognito window
 
 ## Session 5 - Feature completion
-- [ ] Phase 11: Kebab menu full wire-up - Copy All, Download as Markdown (shared formatter), Clear Note Text, Delete (tap-to-confirm), Settings view
-- [ ] Phase 12: Favicons - _favicon/ URL construction in the references accordion
-- [ ] Phase 13: Pinning - toggle + sort-to-top in the Sessions List view
+- [x] Phase 11: Kebab menu full wire-up - Copy All, Download as Markdown (shared formatter), Clear Note Text, Delete (tap-to-confirm), Settings view
+- [x] Phase 12: Favicons - _favicon/ URL construction in the references accordion
+- [x] Phase 13: Pinning - toggle + sort-to-top in the Sessions List view
 
 ## Session 6 - Polish + edge cases
 - [ ] Phase 14: Polish + edge-case testing - empty states, transitions, accessibility, resized-panel testing, chrome:// filtering, refresh/back-button dedup, multi-window behavior, service worker suspend/resume, Incognito data-sharing confirmation, large-note performance, keyboard shortcut conflict check

@@ -2,6 +2,8 @@ import { debounce } from '../lib/debounce.js';
 import {
   createGlobalNote,
   createSession,
+  deleteGlobalNote,
+  deleteSession,
   ensureInitialGlobalNote,
   getActiveSession,
   getGlobalNotes,
@@ -14,8 +16,12 @@ import {
   saveSessionContent,
   getTrackingSettings,
   setDeepDiveTracking,
+  setTheme,
   setTrackingPaused,
+  toggleSessionPinned,
 } from '../lib/storage.js';
+import { getFaviconUrl } from '../lib/favicon.js';
+import { formatNoteForExport, markdownFilename } from '../lib/formatter.js';
 
 const app = document.querySelector('#app');
 const panelPort = chrome.runtime.connect({ name: 'tangent-panel' });
@@ -30,8 +36,11 @@ const state = {
   recordingActive: false,
   deepDiveTracking: false,
   trackingPaused: false,
+  theme: 'system',
   inIncognitoContext,
+  deleteArmed: false,
 };
+let deleteArmTimeoutId = null;
 
 function publishPanelState() {
   panelPort.postMessage({
@@ -59,15 +68,23 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     }
   }
 
-  if ((changes.settings || changes.trackingPaused) && state.view === 'settings') {
-    refreshTrackingSettings().then(render);
+  if (changes.settings || changes.trackingPaused) {
+    refreshTrackingSettings().then(() => {
+      if (state.view === 'settings') render();
+    });
   }
 });
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme === 'system' ? '' : theme;
+}
 
 async function refreshTrackingSettings() {
   const { settings, trackingPaused } = await getTrackingSettings();
   state.deepDiveTracking = settings.deepDiveTracking;
   state.trackingPaused = trackingPaused;
+  state.theme = settings.theme;
+  applyTheme(state.theme);
 }
 
 const autosaveGlobalContent = debounce(async (id, content) => {
@@ -109,14 +126,17 @@ function dateTime(timestamp) {
 
 function menuMarkup() {
   if (!state.menuOpen) return '';
+  const activeItem = state.mode === 'sessions' ? state.currentSession : state.currentNote;
   const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
+  const editorActions = state.view === 'editor' && activeItem
+    ? `<button class="menu-item" id="copy-button" type="button">Copy All</button>
+       <button class="menu-item" id="download-button" type="button">Download as Markdown</button>
+       <button class="menu-item" id="clear-button" type="button">Clear Note Text</button>
+       <button class="menu-item menu-item-danger" id="delete-button" type="button">${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</button>
+       <div class="menu-separator"></div>`
+    : '';
   return `<div class="menu" role="menu" aria-label="${itemName} actions">
-    <div class="menu-hint">Actions arrive in Session 5.</div>
-    <button class="menu-item" type="button" disabled>Copy All</button>
-    <button class="menu-item" type="button" disabled>Download as Markdown</button>
-    <button class="menu-item" type="button" disabled>Clear Note Text</button>
-    <button class="menu-item" type="button" disabled>Delete ${itemName}</button>
-    <div class="menu-separator"></div>
+    ${editorActions}
     <button class="menu-item" id="settings-button" type="button">Settings</button>
   </div>`;
 }
@@ -141,6 +161,13 @@ function globalEditorMarkup() {
   </section>`);
 }
 
+function globalEmptyMarkup() {
+  return shellMarkup(`<section class="view" aria-label="Global notes empty state"><div class="empty-state">
+    <h1>No notes yet</h1><p>Create a note whenever you need a clean scratchpad.</p>
+    <div><button class="text-button" id="new-note-button" type="button">+ New Note</button></div>
+  </div></section>`);
+}
+
 function globalListMarkup(notes) {
   const rows = notes.map((note) => `<button class="note-row" type="button" data-note-id="${escapeHtml(note.id)}">
       <span class="note-row-title">${escapeHtml(note.title)}</span>
@@ -157,7 +184,10 @@ function sessionEditorMarkup() {
   const session = state.currentSession;
   const context = session.links.length === 0
     ? '<p class="context-empty">No pages recorded yet.</p>'
-    : '';
+    : session.links.map((link) => `<a class="context-link" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
+        <img class="link-favicon" src="${escapeHtml(getFaviconUrl(link.url))}" width="16" height="16" alt="">
+        <span class="context-link-copy"><span class="context-link-title">${escapeHtml(link.title || link.url)}</span><span class="context-link-url">${escapeHtml(link.url)}</span></span>
+      </a>`).join('');
   return shellMarkup(`<section class="view" aria-label="Session editor">
     <div class="editor-header session-editor-header">
       <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
@@ -178,7 +208,7 @@ function sessionListMarkup(sessions) {
         <span class="note-row-title">${escapeHtml(session.title)}</span>
         <span class="note-row-meta">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</span>
       </button>
-      <button class="pin-button" type="button" disabled aria-label="Pinning arrives in Session 5" title="Pinning arrives in Session 5"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
+      <button class="pin-button${session.pinned ? ' is-pinned' : ''}" type="button" data-pin-session-id="${escapeHtml(session.id)}" aria-label="${session.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(session.title)}" aria-pressed="${Boolean(session.pinned)}" title="${session.pinned ? 'Unpin session' : 'Pin session'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${session.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
     </div>`).join('');
   return shellMarkup(`<section class="view" aria-label="Sessions history list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span></header>
@@ -205,8 +235,11 @@ function settingsMarkup() {
     : '';
 
   return shellMarkup(`<section class="view" aria-label="Settings">
-    <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor">â†</button><span class="view-title">Settings</span></header>
+    <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Settings</span></header>
     <div class="settings-list">
+      <section class="settings-item">
+        <div class="settings-item-header"><label class="settings-label" for="theme-select">Theme</label><select class="settings-select" id="theme-select" aria-label="Theme"><option value="system" ${state.theme === 'system' ? 'selected' : ''}>System</option><option value="light" ${state.theme === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${state.theme === 'dark' ? 'selected' : ''}>Dark</option></select></div>
+      </section>
       <section class="settings-item">
         <div class="settings-item-header"><span class="settings-label">Deep Dive tracking</span><button class="settings-toggle" id="deep-dive-toggle" type="button" aria-pressed="${deepDiveActive}" ${deepDiveAvailable ? '' : 'disabled'}>${status}</button></div>
         <p>Keep recording session links even when the panel is closed. Automatically turned off while browsing in Incognito.</p>
@@ -221,6 +254,7 @@ async function showGlobalEditor() {
   state.mode = 'global';
   state.view = 'editor';
   state.menuOpen = false;
+  disarmDelete();
   state.currentNote = await ensureInitialGlobalNote();
   await render();
 }
@@ -230,6 +264,7 @@ async function showSessionEditor() {
   state.mode = 'sessions';
   state.view = 'editor';
   state.menuOpen = false;
+  disarmDelete();
   state.currentSession = await getActiveSession();
   state.sessionContextExpanded = false;
   await render();
@@ -250,14 +285,107 @@ function bindShell() {
     }
     state.view = 'list';
     state.menuOpen = false;
+    disarmDelete();
     await render();
   });
   document.querySelector('#menu-button').addEventListener('click', () => {
     state.menuOpen = !state.menuOpen;
+    if (!state.menuOpen) disarmDelete();
     render();
   });
   const settingsButton = document.querySelector('#settings-button');
   if (settingsButton) settingsButton.addEventListener('click', showSettings);
+  const copyButton = document.querySelector('#copy-button');
+  if (copyButton) copyButton.addEventListener('click', copyCurrentItem);
+  const downloadButton = document.querySelector('#download-button');
+  if (downloadButton) downloadButton.addEventListener('click', downloadCurrentItem);
+  const clearButton = document.querySelector('#clear-button');
+  if (clearButton) clearButton.addEventListener('click', clearCurrentItem);
+  const deleteButton = document.querySelector('#delete-button');
+  if (deleteButton) deleteButton.addEventListener('click', handleDelete);
+}
+
+function currentItem() {
+  return state.mode === 'sessions' ? state.currentSession : state.currentNote;
+}
+
+async function flushCurrentAutosave() {
+  if (state.mode === 'sessions') await autosaveSessionContent.flush();
+  else await autosaveGlobalContent.flush();
+}
+
+function currentItemExport() {
+  return formatNoteForExport(currentItem(), state.mode === 'sessions');
+}
+
+async function copyCurrentItem() {
+  await flushCurrentAutosave();
+  await navigator.clipboard.writeText(currentItemExport());
+  state.menuOpen = false;
+  disarmDelete();
+  await render();
+}
+
+async function downloadCurrentItem() {
+  await flushCurrentAutosave();
+  const item = currentItem();
+  const blob = new Blob([currentItemExport()], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = markdownFilename(item.title);
+  link.click();
+  URL.revokeObjectURL(url);
+  state.menuOpen = false;
+  disarmDelete();
+  await render();
+}
+
+async function clearCurrentItem() {
+  await flushCurrentAutosave();
+  const item = currentItem();
+  const saved = state.mode === 'sessions'
+    ? await saveSessionContent(item.id, '')
+    : await saveGlobalNoteContent(item.id, '');
+  if (state.mode === 'sessions') state.currentSession = saved;
+  else state.currentNote = saved;
+  state.menuOpen = false;
+  disarmDelete();
+  await render();
+}
+
+function disarmDelete() {
+  state.deleteArmed = false;
+  if (deleteArmTimeoutId) clearTimeout(deleteArmTimeoutId);
+  deleteArmTimeoutId = null;
+}
+
+async function deleteCurrentItem() {
+  await flushCurrentAutosave();
+  if (state.mode === 'sessions') {
+    state.currentSession = await deleteSession(state.currentSession.id);
+  } else {
+    state.currentNote = await deleteGlobalNote(state.currentNote.id);
+    if (!state.currentNote) state.view = 'list';
+  }
+  state.menuOpen = false;
+  disarmDelete();
+  await render();
+}
+
+async function handleDelete() {
+  if (state.deleteArmed) {
+    await deleteCurrentItem();
+    return;
+  }
+
+  state.deleteArmed = true;
+  deleteArmTimeoutId = setTimeout(() => {
+    state.deleteArmed = false;
+    deleteArmTimeoutId = null;
+    if (state.menuOpen) render();
+  }, 3000);
+  await render();
 }
 
 function beginTitleEdit({ title, item, label, save }) {
@@ -336,6 +464,9 @@ function bindSessionEditor() {
     state.sessionContextExpanded = !state.sessionContextExpanded;
     render();
   });
+  document.querySelectorAll('.link-favicon').forEach((favicon) => {
+    favicon.addEventListener('error', () => { favicon.hidden = true; });
+  });
 }
 
 async function createAndOpenSession() {
@@ -355,10 +486,22 @@ function bindSessionList() {
     state.sessionContextExpanded = false;
     await render();
   }));
+  document.querySelectorAll('[data-pin-session-id]').forEach((button) => button.addEventListener('click', async () => {
+    await toggleSessionPinned(button.dataset.pinSessionId);
+    await render();
+  }));
 }
 
 function bindSessionsEmpty() {
   document.querySelector('#new-session-button').addEventListener('click', createAndOpenSession);
+}
+
+function bindGlobalEmpty() {
+  document.querySelector('#new-note-button').addEventListener('click', async () => {
+    state.currentNote = await createGlobalNote();
+    state.view = 'editor';
+    await render();
+  });
 }
 
 async function showSettings() {
@@ -373,6 +516,11 @@ async function showSettings() {
 function bindSettings() {
   document.querySelector('#settings-back-button').addEventListener('click', async () => {
     state.view = 'editor';
+    await render();
+  });
+  document.querySelector('#theme-select').addEventListener('change', async (event) => {
+    await setTheme(event.currentTarget.value);
+    await refreshTrackingSettings();
     await render();
   });
   const deepDiveToggle = document.querySelector('#deep-dive-toggle');
@@ -403,10 +551,14 @@ async function render() {
       app.innerHTML = globalListMarkup(await getGlobalNotes());
       bindShell();
       bindGlobalList();
-    } else {
+    } else if (state.currentNote) {
       app.innerHTML = globalEditorMarkup();
       bindShell();
       bindGlobalEditor();
+    } else {
+      app.innerHTML = globalEmptyMarkup();
+      bindShell();
+      bindGlobalEmpty();
     }
   } else if (state.view === 'list') {
     app.innerHTML = sessionListMarkup(await getSessions());
