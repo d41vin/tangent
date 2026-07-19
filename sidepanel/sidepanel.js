@@ -15,6 +15,7 @@ import {
 } from '../lib/storage.js';
 
 const app = document.querySelector('#app');
+const panelPort = chrome.runtime.connect({ name: 'tangent-panel' });
 const state = {
   mode: 'global',
   view: 'editor',
@@ -22,7 +23,31 @@ const state = {
   currentSession: null,
   menuOpen: false,
   sessionContextExpanded: false,
+  recordingActive: false,
 };
+
+function publishPanelState() {
+  panelPort.postMessage({
+    type: 'panel-state',
+    mode: state.mode,
+    sessionId: state.mode === 'sessions' ? state.currentSession?.id ?? null : null,
+  });
+}
+
+panelPort.onMessage.addListener((message) => {
+  if (message?.type !== 'tracking-state' || state.recordingActive === message.recording) return;
+  state.recordingActive = message.recording;
+  if (state.mode === 'sessions' && state.currentSession) render();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !changes.sessions || !state.currentSession) return;
+  const updatedSession = changes.sessions.newValue?.[state.currentSession.id];
+  if (updatedSession && updatedSession.links.length !== state.currentSession.links.length) {
+    state.currentSession = updatedSession;
+    render();
+  }
+});
 
 const autosaveGlobalContent = debounce(async (id, content) => {
   const saved = await saveGlobalNoteContent(id, content);
@@ -116,7 +141,7 @@ function sessionEditorMarkup() {
     <div class="editor-header session-editor-header">
       <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
       <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</div>
-      <div class="session-status" aria-label="Recording indicator"><span class="recording-dot" aria-hidden="true"></span>Recording</div>
+      ${state.recordingActive ? '<div class="session-status" aria-label="Recording indicator"><span class="recording-dot" aria-hidden="true"></span>Recording</div>' : ''}
     </div>
     <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
     <section class="session-context" aria-label="Session context">
@@ -273,6 +298,7 @@ async function createAndOpenSession() {
   state.view = 'editor';
   state.sessionContextExpanded = false;
   await render();
+  panelPort.postMessage({ type: 'capture-active-tab' });
 }
 
 function bindSessionList() {
@@ -296,29 +322,25 @@ async function render() {
       app.innerHTML = globalListMarkup(await getGlobalNotes());
       bindShell();
       bindGlobalList();
-      return;
+    } else {
+      app.innerHTML = globalEditorMarkup();
+      bindShell();
+      bindGlobalEditor();
     }
-    app.innerHTML = globalEditorMarkup();
-    bindShell();
-    bindGlobalEditor();
-    return;
-  }
-
-  if (state.view === 'list') {
+  } else if (state.view === 'list') {
     app.innerHTML = sessionListMarkup(await getSessions());
     bindShell();
     bindSessionList();
-    return;
-  }
-  if (!state.currentSession) {
+  } else if (!state.currentSession) {
     app.innerHTML = sessionsEmptyMarkup();
     bindShell();
     bindSessionsEmpty();
-    return;
+  } else {
+    app.innerHTML = sessionEditorMarkup();
+    bindShell();
+    bindSessionEditor();
   }
-  app.innerHTML = sessionEditorMarkup();
-  bindShell();
-  bindSessionEditor();
+  publishPanelState();
 }
 
 async function initialize() {

@@ -13,8 +13,8 @@ Grouped into 6 Codex sessions. Check off each phase as it's completed — this f
 - [x] Phase 6 · Sessions List + Editor views — History List (pin icons, created/edited times), editable title, recording indicator UI (visual only, no live tracking yet)
 
 ## Session 3 — Background tracking engine (the hard part)
-- [ ] Phase 7 · Background tracking engine — active-tab/focused-window detection, URL cleaning denylist, dedup, appending to whichever session is currently active
-- [ ] Phase 8 · Panel-open detection — port wiring for default Panel-Driven tracking mode
+- [x] Phase 7 · Background tracking engine — active-tab/focused-window detection, URL cleaning denylist, dedup, appending to whichever session is currently active
+- [x] Phase 8 · Panel-open detection — port wiring for default Panel-Driven tracking mode
 
 ## Session 4 — Deep Dive + Incognito
 - [ ] Phase 9 · Deep Dive mode — settings toggle, persisted pause/resume, static toolbar badge
