@@ -41,6 +41,11 @@ const state = {
   deleteArmed: false,
 };
 let deleteArmTimeoutId = null;
+let pendingFocusSelector = null;
+
+function requestFocus(selector) {
+  pendingFocusSelector = selector;
+}
 
 function publishPanelState() {
   panelPort.postMessage({
@@ -129,15 +134,15 @@ function menuMarkup() {
   const activeItem = state.mode === 'sessions' ? state.currentSession : state.currentNote;
   const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
   const editorActions = state.view === 'editor' && activeItem
-    ? `<button class="menu-item" id="copy-button" type="button">Copy All</button>
-       <button class="menu-item" id="download-button" type="button">Download as Markdown</button>
-       <button class="menu-item" id="clear-button" type="button">Clear Note Text</button>
-       <button class="menu-item menu-item-danger" id="delete-button" type="button">${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</button>
+    ? `<button class="menu-item" id="copy-button" type="button" role="menuitem">Copy All</button>
+       <button class="menu-item" id="download-button" type="button" role="menuitem">Download as Markdown</button>
+       <button class="menu-item" id="clear-button" type="button" role="menuitem">Clear Note Text</button>
+       <button class="menu-item menu-item-danger" id="delete-button" type="button" role="menuitem">${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</button>
        <div class="menu-separator"></div>`
     : '';
-  return `<div class="menu" role="menu" aria-label="${itemName} actions">
+  return `<div class="menu" id="actions-menu" role="menu" aria-label="${itemName} actions">
     ${editorActions}
-    <button class="menu-item" id="settings-button" type="button">Settings</button>
+    <button class="menu-item" id="settings-button" type="button" role="menuitem">Settings</button>
   </div>`;
 }
 
@@ -145,24 +150,24 @@ function shellMarkup(content) {
   return `<div class="app-shell">
     <header class="topbar">
       <div class="tabs" role="tablist" aria-label="Tangent mode">
-        <button class="tab" id="global-tab" role="tab" aria-selected="${state.mode === 'global'}">Global</button>
-        <button class="tab" id="sessions-tab" role="tab" aria-selected="${state.mode === 'sessions'}">Sessions</button>
+        <button class="tab" id="global-tab" role="tab" aria-controls="global-view" aria-selected="${state.mode === 'global'}" tabindex="${state.mode === 'global' ? '0' : '-1'}">Global</button>
+        <button class="tab" id="sessions-tab" role="tab" aria-controls="sessions-view" aria-selected="${state.mode === 'sessions'}" tabindex="${state.mode === 'sessions' ? '0' : '-1'}">Sessions</button>
       </div>
       <button class="icon-button" id="list-button" type="button" aria-label="Open list view" title="Open list view">☰</button>
-      <button class="icon-button" id="menu-button" type="button" aria-label="Open note actions" aria-expanded="${state.menuOpen}" title="Note actions">⋮</button>
+      <button class="icon-button" id="menu-button" type="button" aria-label="Open note actions" aria-haspopup="menu" aria-controls="actions-menu" aria-expanded="${state.menuOpen}" title="Note actions">⋮</button>
     </header>${content}</div>${menuMarkup()}`;
 }
 
 function globalEditorMarkup() {
   const note = state.currentNote;
-  return shellMarkup(`<section class="view" aria-label="Global note editor">
+  return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global note editor">
     <div class="editor-header"><button class="note-title" id="note-title" type="button" title="Rename note">${escapeHtml(note.title)}</button></div>
     <textarea class="note-canvas" id="note-content" aria-label="${escapeHtml(note.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(note.content)}</textarea>
   </section>`);
 }
 
 function globalEmptyMarkup() {
-  return shellMarkup(`<section class="view" aria-label="Global notes empty state"><div class="empty-state">
+  return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes empty state"><div class="empty-state">
     <h1>No notes yet</h1><p>Create a note whenever you need a clean scratchpad.</p>
     <div><button class="text-button" id="new-note-button" type="button">+ New Note</button></div>
   </div></section>`);
@@ -173,7 +178,7 @@ function globalListMarkup(notes) {
       <span class="note-row-title">${escapeHtml(note.title)}</span>
       <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
     </button>`).join('');
-  return shellMarkup(`<section class="view" aria-label="Global notes list">
+  return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span></header>
     <div class="list-actions"><button class="text-button" id="new-note-button" type="button">+ New Note</button></div>
     <div class="note-list">${rows}</div>
@@ -188,16 +193,16 @@ function sessionEditorMarkup() {
         <img class="link-favicon" src="${escapeHtml(getFaviconUrl(link.url))}" width="16" height="16" alt="">
         <span class="context-link-copy"><span class="context-link-title">${escapeHtml(link.title || link.url)}</span><span class="context-link-url">${escapeHtml(link.url)}</span></span>
       </a>`).join('');
-  return shellMarkup(`<section class="view" aria-label="Session editor">
+  return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Session editor">
     <div class="editor-header session-editor-header">
       <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
       <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</div>
-      ${state.recordingActive ? '<div class="session-status" aria-label="Recording indicator"><span class="recording-dot" aria-hidden="true"></span>Recording</div>' : ''}
+      ${state.recordingActive ? '<div class="session-status" role="status"><span class="recording-dot" aria-hidden="true"></span>Recording</div>' : ''}
     </div>
     <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
     <section class="session-context" aria-label="Session context">
-      <button class="context-toggle" id="context-toggle" type="button" aria-expanded="${state.sessionContextExpanded}">${state.sessionContextExpanded ? '▾' : '▸'} Session context · ${session.links.length} links</button>
-      ${state.sessionContextExpanded ? `<div class="context-body">${context}</div>` : ''}
+      <button class="context-toggle" id="context-toggle" type="button" aria-controls="context-body" aria-expanded="${state.sessionContextExpanded}">${state.sessionContextExpanded ? '▾' : '▸'} Session context · ${session.links.length} links</button>
+      <div class="context-expand" id="context-body" aria-hidden="${!state.sessionContextExpanded}"><div class="context-expand-inner"><div class="context-body">${context}</div></div></div>
     </section>
   </section>`);
 }
@@ -210,7 +215,7 @@ function sessionListMarkup(sessions) {
       </button>
       <button class="pin-button${session.pinned ? ' is-pinned' : ''}" type="button" data-pin-session-id="${escapeHtml(session.id)}" aria-label="${session.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(session.title)}" aria-pressed="${Boolean(session.pinned)}" title="${session.pinned ? 'Unpin session' : 'Pin session'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${session.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
     </div>`).join('');
-  return shellMarkup(`<section class="view" aria-label="Sessions history list">
+  return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions history list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span></header>
     <div class="list-actions"><button class="text-button" id="new-session-button" type="button">+ New Session</button></div>
     <div class="note-list">${rows}</div>
@@ -218,7 +223,7 @@ function sessionListMarkup(sessions) {
 }
 
 function sessionsEmptyMarkup() {
-  return shellMarkup(`<section class="view" aria-label="Sessions empty state"><div class="empty-state">
+  return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions empty state"><div class="empty-state">
     <h1>No sessions yet</h1><p>Start a session to keep notes alongside the pages you visit.</p>
     <div><button class="text-button" id="new-session-button" type="button">+ New Session</button></div>
   </div></section>`);
@@ -234,7 +239,7 @@ function settingsMarkup() {
     ? `<button class="text-button settings-control" id="tracking-pause-button" type="button">${state.trackingPaused ? 'Resume tracking' : 'Pause tracking'}</button>`
     : '';
 
-  return shellMarkup(`<section class="view" aria-label="Settings">
+  return shellMarkup(`<section class="view" id="${state.mode === 'sessions' ? 'sessions-view' : 'global-view'}" role="tabpanel" aria-label="Settings">
     <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Settings</span></header>
     <div class="settings-list">
       <section class="settings-item">
@@ -270,6 +275,42 @@ async function showSessionEditor() {
   await render();
 }
 
+function closeMenu({ restoreFocus = false } = {}) {
+  if (!state.menuOpen) return;
+  state.menuOpen = false;
+  disarmDelete();
+  if (restoreFocus) requestFocus('#menu-button');
+  render();
+}
+
+function bindMenuKeyboard() {
+  const menu = document.querySelector('#actions-menu');
+  if (!menu) return;
+  const items = [...menu.querySelectorAll('[role="menuitem"]')];
+
+  items.forEach((item, index) => item.addEventListener('keydown', (event) => {
+    let targetIndex = null;
+    if (event.key === 'ArrowDown') targetIndex = (index + 1) % items.length;
+    if (event.key === 'ArrowUp') targetIndex = (index - 1 + items.length) % items.length;
+    if (event.key === 'Home') targetIndex = 0;
+    if (event.key === 'End') targetIndex = items.length - 1;
+    if (targetIndex !== null) {
+      event.preventDefault();
+      items[targetIndex].focus();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu({ restoreFocus: true });
+    }
+  }));
+  menu.addEventListener('focusout', () => {
+    requestAnimationFrame(() => {
+      if (state.menuOpen && !menu.contains(document.activeElement)) closeMenu();
+    });
+  });
+}
+
 function bindShell() {
   document.querySelector('#global-tab').addEventListener('click', () => {
     if (state.mode !== 'global') showGlobalEditor();
@@ -277,6 +318,27 @@ function bindShell() {
   document.querySelector('#sessions-tab').addEventListener('click', () => {
     if (state.mode !== 'sessions') showSessionEditor();
   });
+  document.querySelectorAll('[role="tab"]').forEach((tab) => tab.addEventListener('keydown', (event) => {
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const index = tabs.indexOf(event.currentTarget);
+    let nextIndex = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % tabs.length;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextTab = tabs[nextIndex];
+    if (nextTab.id === 'global-tab' && state.mode !== 'global') {
+      requestFocus('#global-tab');
+      showGlobalEditor();
+    } else if (nextTab.id === 'sessions-tab' && state.mode !== 'sessions') {
+      requestFocus('#sessions-tab');
+      showSessionEditor();
+    } else {
+      nextTab.focus();
+    }
+  }));
   document.querySelector('#list-button').addEventListener('click', async () => {
     if (state.mode === 'global') {
       await autosaveGlobalContent.flush();
@@ -291,6 +353,7 @@ function bindShell() {
   document.querySelector('#menu-button').addEventListener('click', () => {
     state.menuOpen = !state.menuOpen;
     if (!state.menuOpen) disarmDelete();
+    else requestFocus('#copy-button, #settings-button');
     render();
   });
   const settingsButton = document.querySelector('#settings-button');
@@ -303,7 +366,19 @@ function bindShell() {
   if (clearButton) clearButton.addEventListener('click', clearCurrentItem);
   const deleteButton = document.querySelector('#delete-button');
   if (deleteButton) deleteButton.addEventListener('click', handleDelete);
+  bindMenuKeyboard();
 }
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && state.menuOpen) {
+    event.preventDefault();
+    closeMenu({ restoreFocus: true });
+  }
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (state.menuOpen && !event.target.closest('#actions-menu, #menu-button')) closeMenu();
+});
 
 function currentItem() {
   return state.mode === 'sessions' ? state.currentSession : state.currentNote;
@@ -548,9 +623,16 @@ async function render() {
     bindSettings();
   } else if (state.mode === 'global') {
     if (state.view === 'list') {
-      app.innerHTML = globalListMarkup(await getGlobalNotes());
-      bindShell();
-      bindGlobalList();
+      const notes = await getGlobalNotes();
+      if (notes.length === 0) {
+        app.innerHTML = globalEmptyMarkup();
+        bindShell();
+        bindGlobalEmpty();
+      } else {
+        app.innerHTML = globalListMarkup(notes);
+        bindShell();
+        bindGlobalList();
+      }
     } else if (state.currentNote) {
       app.innerHTML = globalEditorMarkup();
       bindShell();
@@ -561,9 +643,16 @@ async function render() {
       bindGlobalEmpty();
     }
   } else if (state.view === 'list') {
-    app.innerHTML = sessionListMarkup(await getSessions());
-    bindShell();
-    bindSessionList();
+    const sessions = await getSessions();
+    if (sessions.length === 0) {
+      app.innerHTML = sessionsEmptyMarkup();
+      bindShell();
+      bindSessionsEmpty();
+    } else {
+      app.innerHTML = sessionListMarkup(sessions);
+      bindShell();
+      bindSessionList();
+    }
   } else if (!state.currentSession) {
     app.innerHTML = sessionsEmptyMarkup();
     bindShell();
@@ -574,6 +663,11 @@ async function render() {
     bindSessionEditor();
   }
   publishPanelState();
+  if (pendingFocusSelector) {
+    const selector = pendingFocusSelector;
+    pendingFocusSelector = null;
+    requestAnimationFrame(() => document.querySelector(selector)?.focus());
+  }
 }
 
 async function initialize() {

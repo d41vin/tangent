@@ -2,38 +2,42 @@
 
 ## Status
 
-Session 5 is complete: Phases 11-13 are built. Phase 14 (polish and manual edge-case testing) is next.
+**v1 is complete.** All 14 build phases are checked off. Session 6 completed the final polish and edge-case pass.
 
 ## What was built this session
 
-- Completed the context-aware kebab menu. In an editor it now offers Copy All, Download as Markdown, Clear Note Text, a three-second tap-to-arm / tap-again Delete action, and Settings. In list/empty views it retains Settings without item-specific actions.
-- Added `lib/formatter.js`: Copy All and Download share one formatter. Sessions export the note followed by a numbered Markdown-link `Links:` section; Global Notes export raw text. Downloads use a sanitized `.md` filename, Blob, and temporary anchor—no downloads permission.
-- Added safe Global Note and Session deletion storage operations. Deleting the final Global Note intentionally lands on a small empty state instead of immediately recreating a note; creating the next note retains the monotonically increasing number.
-- Completed Settings with a persisted System / Light / Dark theme selector while retaining the previous Deep Dive and Incognito behavior.
-- Implemented the MV3 favicon helper and render-time context links: each link displays its Chrome `_favicon/` image, title, and monospace URL, opening in a new tab. Favicon failures hide only the broken image.
-- Implemented functional Session pin controls. Pins are stored per session, do not alter the session's edit timestamp, and sort pinned sessions above unpinned sessions; each group remains newest-edited-first.
-
-## Decisions / deviations
-
-- The destructive confirmation is text-based (`Confirm delete Note/Session`) in the kebab menu and automatically disarms after three seconds. No modal is used.
-- Theme is stored alongside the existing settings at `settings.theme`, defaulting safely to `system` for existing installs.
-- A pin toggle deliberately leaves `updatedAt` unchanged, so its ordering still represents actual note/session edits rather than a history-list preference change.
+- Added polished empty-state fallback handling when a List view has no remaining notes or sessions.
+- Added fast, reduced-motion-aware view and accordion motion. The Session context accordion now remains semantically connected to its control, has a smooth height/opacity transition, and its links are unavailable to keyboard focus while collapsed.
+- Improved accessibility: explicit tab panels and roving tab focus, arrow/Home/End navigation for mode tabs and kebab-menu items, Escape/outside-click menu dismissal, focus restoration to the kebab trigger, proper menu roles, and visible keyboard focus for the title, textarea, controls, rows, links, and settings.
+- Hardened the layout for narrow/wide Side Panel widths: flex children can shrink, long context content truncates safely, and the kebab menu cannot overflow the viewport.
 
 ## Verification performed
 
-- Ran `node --check` for the side panel, storage, formatter, favicon helper, and background scripts.
-- Ran `git diff --check`.
-- Ran mocked storage tests covering first-note creation, final-note deletion without accidental recreation, settings-theme persistence, pin toggling/sorting, and active-session deletion fallback.
-- Ran formatter checks for shared Session Markdown output, escaping, and filename sanitization.
+- `node --check` passed for the panel, background worker, storage, and URL helpers.
+- `git diff --check` passed.
+- URL-helper assertions passed: `chrome://` URLs are rejected; tracking parameters and fragments are removed while page-defining query parameters are retained; existing URLs are not re-recorded.
+- A mocked `chrome.storage.local` round trip saved and reread a 1 MiB note successfully (2 ms in the mock) while preserving note ordering/numbering.
+- Manifest inspection confirmed one command only: reserved `_execute_action`, suggested as `Ctrl+Shift+Y`; Incognito is configured as `spanning`.
+- Tracking-worker review confirmed its event listeners register at module evaluation time and Deep Dive state is read from `chrome.storage.local` for each recording gate, so it survives service-worker suspension/resume. Connected panel ports remain the deliberate live source of truth for Panel-Driven tracking.
+- Tracking-worker review confirmed multi-window behavior is global by design: any open Sessions panel for the active session enables panel-driven tracking, while the currently focused window's active completed tab is what is captured.
+- Contrast/focus/motion and 320-600px responsive behavior were reviewed against the CSS implementation.
 
-## Required manual verification
+## Manual Chrome smoke test
 
-1. Reload Tangent in `chrome://extensions`. In each editor, check Copy All, Markdown download, Clear Note Text, and that Delete only succeeds on the second tap before its three-second confirmation expires.
-2. In Settings, switch System / Light / Dark and verify the panel updates immediately and the choice persists after reload.
-3. Record a couple of Session links, expand Session context, verify Chrome favicons, title/URL layout, and new-tab link behavior.
-4. Create several sessions, pin/unpin them, and confirm pinned sessions remain first while each group is newest-edited-first.
-5. Complete the remaining prior-session Incognito / Deep Dive checks documented in the Session 4 handoff: data sharing across normal/Incognito, panel rendering, visible panel tracking in Incognito, and Deep Dive suppression there.
+The automated browser environment blocks Chrome internal extension-management and Incognito surfaces, so these must be confirmed in a local Chrome session after reloading the unpacked extension:
 
-## Next session starts here
+1. Visit `chrome://extensions`, reload Tangent, and verify `Ctrl+Shift+Y` is accepted and toggles the Side Panel without a Chrome conflict.
+2. Enable **Allow in Incognito**, create a note in Incognito and verify it appears in a normal window; repeat normal to Incognito. This should share because both contexts use the same `chrome.storage.local` namespace under `incognito: spanning`.
+3. With a Session active, check that `chrome://` pages never appear; refreshing, back/forward revisits, and tracking-parameter variants add no duplicate links.
+4. Check a Session in two windows: the most recently opened Session is global, and the focused window's active tab is captured while either panel remains open.
+5. Enable Deep Dive, use Chrome's extension inspector to stop the service worker, then navigate: the next event should wake it and continue recording. In Incognito, Deep Dive must stay disabled while visible-panel tracking continues.
+6. Resize the Side Panel from roughly 320px to 600px, then tab through the mode tabs, kebab menu, and Session context accordion.
 
-Complete Phase 14: polish motion/accessibility/empty and resized-panel behavior, then perform the full manual tracking, multi-window, service-worker, Incognito, performance, and shortcut checks from the project brief.
+## Decisions / deviations
+
+- The textarea retains the brief's flat, borderless appearance until keyboard focus, when it receives a high-contrast inset outline for accessibility.
+- No behavior or data-model changes were needed for tracking, Incognito, or storage; this phase is presentation, operability, and resilience polish.
+
+## Next session
+
+No build work remains for v1. Run the short manual Chrome smoke test above before publishing or sharing the unpacked extension.

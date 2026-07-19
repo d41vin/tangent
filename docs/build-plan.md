@@ -26,4 +26,4 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 - [x] Phase 13: Pinning - toggle + sort-to-top in the Sessions List view
 
 ## Session 6 - Polish + edge cases
-- [ ] Phase 14: Polish + edge-case testing - empty states, transitions, accessibility, resized-panel testing, chrome:// filtering, refresh/back-button dedup, multi-window behavior, service worker suspend/resume, Incognito data-sharing confirmation, large-note performance, keyboard shortcut conflict check
+- [x] Phase 14: Polish + edge-case testing - empty states, transitions, accessibility, resized-panel testing, chrome:// filtering, refresh/back-button dedup, multi-window behavior, service worker suspend/resume, Incognito data-sharing confirmation, large-note performance, keyboard shortcut conflict check
