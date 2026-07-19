@@ -3,10 +3,10 @@
 Grouped into 6 Codex sessions. Check off each phase as it's completed — this file is the single source of truth for where the project stands.
 
 ## Session 1 — Skeleton + Global Notes
-- [ ] Phase 1 · Scaffolding — manifest.json (incl. `commands` + `incognito` keys), folder structure, panel opens via icon click and keyboard shortcut
-- [ ] Phase 2 · Global Notes data layer — multiple notes, numbered titles, auto-created first note, debounced autosave, storage round-trip
-- [ ] Phase 3 · Global Notes List + Editor views — list icon, + New Note, switching between notes
-- [ ] Phase 4 · Navigation shell — Global/Sessions tabs, kebab menu shell (stubbed actions), view routing
+- [x] Phase 1 · Scaffolding — manifest.json (incl. `commands` + `incognito` keys), folder structure, panel opens via icon click and keyboard shortcut
+- [x] Phase 2 · Global Notes data layer — multiple notes, numbered titles, auto-created first note, debounced autosave, storage round-trip
+- [x] Phase 3 · Global Notes List + Editor views — list icon, + New Note, switching between notes
+- [x] Phase 4 · Navigation shell — Global/Sessions tabs, kebab menu shell (stubbed actions), view routing
 
 ## Session 2 — Sessions (data + UI, no tracking yet)
 - [ ] Phase 5 · Sessions data layer — create/list/open sessions, numbered + timestamped titles, empty state
