@@ -3,26 +3,26 @@
 _This file is overwritten — not appended to — at the end of every session. It should only ever reflect the most recent state; git history preserves everything older._
 
 ## Status
-Session 1 implementation is complete: Phases 1-4 are built.
+Session 2 implementation is complete: Phases 5-6 are built.
 
-## What was built last session
-- Manifest V3 scaffold, service worker panel behavior, keyboard shortcut, spanning Incognito setting, requested permissions, and monochrome PNG icons.
-- Global Notes storage layer using `chrome.storage.local`: object-keyed records, monotonic numbers, auto-created `Note 1`, last-open pointer, title/content persistence, and 500 ms debounced content saves.
-- Global Notes editor and list views: inline title rename, `+ New Note`, recency sorting, and last-open behavior.
-- Shared top-level Global/Sessions shell, with a Sessions placeholder and Phase-4-only disabled kebab menu shell.
+## What was built this session
+- Sessions persistence in `chrome.storage.local`: object-keyed records, a monotonic `nextSessionNumber`, an `activeSessionId`, timestamped default titles, content saves, title renames, and safe fallback to the most recently edited session if the active pointer is missing.
+- Sessions UI: an intentional empty state, `+ New Session` entry points in the empty state and History List, re-opening from the list, 500 ms debounced text autosave, editable titles, created/edited metadata, and a collapsed zero-link context accordion.
+- The History List shows the requested monochrome pin affordance. It is disabled until Phase 13, which owns pin mutations and pinned-first sorting.
+- The Session editor has the green pulsing `Recording` indicator as a presentational-only Phase 6 affordance. No tracking listeners, panel ports, URL handling, or background tracking behavior have been added.
 
 ## Decisions made / deviations from the brief
-- Followed the brief's five listed Section 11 assumptions without deviation.
-- The Session 1 kebab menu deliberately displays disabled stub actions with a small "Actions arrive in Session 5" note; no destructive or export behavior was implemented early.
-- `lib/url-utils.js` and `lib/favicon.js` are intentional placeholder modules for their later scheduled phases.
+- The active-session pointer is updated on creation and when a session is opened; reopening the Sessions tab falls back to the most recently edited surviving session if an old pointer is invalid.
+- Session titles use the browser locale for the specified `Mon D, h:mm AM/PM`-style timestamp. Clearing a custom title restores that session's original numbered/timestamped default title.
+- The previous Session 1 manual Chrome installation check remains unperformed because the environment cannot access `chrome://extensions`; no attempt was made to substitute tracking behavior for that missing live check.
+
+## Verification performed
+- Parsed the storage and side panel modules as ES modules and checked the working diff for whitespace errors.
+- Ran a mocked `chrome.storage.local` round-trip covering no-session empty state, creation, monotonic numbering, active-session persistence, content save, title reset, and recency sorting.
 
 ## Known issues to watch
-- Static validation and a mocked storage round-trip test pass. The live Chrome check (Load unpacked, toolbar panel toggle, and shortcut) still needs a manual verification: this environment blocks access to `chrome://extensions`, so it could not install the local extension for automated testing.
-- The keyboard shortcut is the brief's placeholder `Ctrl+Shift+Y`; Chrome may require rebinding it if that key is already claimed locally.
-
-## State right now
-- No dependencies or build step. Load the repository root through Chrome's "Load unpacked" flow.
-- Sessions have no persistence or tracking yet by design; the tab shows a clear placeholder only.
+- The extension still needs its first manual load-unpacked check in Chrome, including the toolbar click and keyboard shortcut.
+- The recording label is not yet tied to actual tracking conditions, and the context accordion will stay at zero links until Session 3.
 
 ## Next session starts here
-First perform the quick manual Phase 1 check in Chrome (load unpacked, toolbar click, and shortcut), then begin Phase 5: Sessions data layer. Do not add tracking listeners until Session 3.
+Implement Phase 7 first: the background tracking engine (focused active tabs, URL cleanup, deduplication, and appending to `activeSessionId`), then Phase 8 panel-port detection. Preserve the existing Session UI and replace the presentational indicator with real recording state only once those conditions are available.

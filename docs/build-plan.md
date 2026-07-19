@@ -9,8 +9,8 @@ Grouped into 6 Codex sessions. Check off each phase as it's completed — this f
 - [x] Phase 4 · Navigation shell — Global/Sessions tabs, kebab menu shell (stubbed actions), view routing
 
 ## Session 2 — Sessions (data + UI, no tracking yet)
-- [ ] Phase 5 · Sessions data layer — create/list/open sessions, numbered + timestamped titles, empty state
-- [ ] Phase 6 · Sessions List + Editor views — History List (pin icons, created/edited times), editable title, recording indicator UI (visual only, no live tracking yet)
+- [x] Phase 5 · Sessions data layer — create/list/open sessions, numbered + timestamped titles, empty state
+- [x] Phase 6 · Sessions List + Editor views — History List (pin icons, created/edited times), editable title, recording indicator UI (visual only, no live tracking yet)
 
 ## Session 3 — Background tracking engine (the hard part)
 - [ ] Phase 7 · Background tracking engine — active-tab/focused-window detection, URL cleaning denylist, dedup, appending to whichever session is currently active

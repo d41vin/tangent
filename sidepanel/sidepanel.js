@@ -1,19 +1,37 @@
 import { debounce } from '../lib/debounce.js';
 import {
   createGlobalNote,
+  createSession,
   ensureInitialGlobalNote,
+  getActiveSession,
   getGlobalNotes,
+  getSessions,
   openGlobalNote,
+  openSession,
   renameGlobalNote,
+  renameSession,
   saveGlobalNoteContent,
+  saveSessionContent,
 } from '../lib/storage.js';
 
 const app = document.querySelector('#app');
-const state = { mode: 'global', view: 'editor', currentNote: null, menuOpen: false };
+const state = {
+  mode: 'global',
+  view: 'editor',
+  currentNote: null,
+  currentSession: null,
+  menuOpen: false,
+  sessionContextExpanded: false,
+};
 
-const autosaveContent = debounce(async (id, content) => {
+const autosaveGlobalContent = debounce(async (id, content) => {
   const saved = await saveGlobalNoteContent(id, content);
   if (saved && state.currentNote?.id === id) state.currentNote = saved;
+}, 500);
+
+const autosaveSessionContent = debounce(async (id, content) => {
+  const saved = await saveSessionContent(id, content);
+  if (saved && state.currentSession?.id === id) state.currentSession = saved;
 }, 500);
 
 function escapeHtml(value) {
@@ -34,14 +52,24 @@ function relativeTime(timestamp) {
   return `Edited ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(timestamp)}`;
 }
 
+function dateTime(timestamp) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(timestamp);
+}
+
 function menuMarkup() {
   if (!state.menuOpen) return '';
-  return `<div class="menu" role="menu" aria-label="Note actions">
+  const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
+  return `<div class="menu" role="menu" aria-label="${itemName} actions">
     <div class="menu-hint">Actions arrive in Session 5.</div>
     <button class="menu-item" type="button" disabled>Copy All</button>
     <button class="menu-item" type="button" disabled>Download as Markdown</button>
     <button class="menu-item" type="button" disabled>Clear Note Text</button>
-    <button class="menu-item" type="button" disabled>Delete Note</button>
+    <button class="menu-item" type="button" disabled>Delete ${itemName}</button>
     <div class="menu-separator"></div>
     <button class="menu-item" type="button" disabled>Settings</button>
   </div>`;
@@ -59,7 +87,7 @@ function shellMarkup(content) {
     </header>${content}</div>${menuMarkup()}`;
 }
 
-function editorMarkup() {
+function globalEditorMarkup() {
   const note = state.currentNote;
   return shellMarkup(`<section class="view" aria-label="Global note editor">
     <div class="editor-header"><button class="note-title" id="note-title" type="button" title="Rename note">${escapeHtml(note.title)}</button></div>
@@ -67,7 +95,7 @@ function editorMarkup() {
   </section>`);
 }
 
-function listMarkup(notes) {
+function globalListMarkup(notes) {
   const rows = notes.map((note) => `<button class="note-row" type="button" data-note-id="${escapeHtml(note.id)}">
       <span class="note-row-title">${escapeHtml(note.title)}</span>
       <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
@@ -79,80 +107,218 @@ function listMarkup(notes) {
   </section>`);
 }
 
-function sessionsMarkup() {
-  return shellMarkup(`<section class="view" aria-label="Sessions"><div class="empty-state">
-    <h1>Sessions are next</h1><p>Session notes and live page context are scheduled for the next build session.</p>
+function sessionEditorMarkup() {
+  const session = state.currentSession;
+  const context = session.links.length === 0
+    ? '<p class="context-empty">No pages recorded yet.</p>'
+    : '';
+  return shellMarkup(`<section class="view" aria-label="Session editor">
+    <div class="editor-header session-editor-header">
+      <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
+      <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</div>
+      <div class="session-status" aria-label="Recording indicator"><span class="recording-dot" aria-hidden="true"></span>Recording</div>
+    </div>
+    <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
+    <section class="session-context" aria-label="Session context">
+      <button class="context-toggle" id="context-toggle" type="button" aria-expanded="${state.sessionContextExpanded}">${state.sessionContextExpanded ? '▾' : '▸'} Session context · ${session.links.length} links</button>
+      ${state.sessionContextExpanded ? `<div class="context-body">${context}</div>` : ''}
+    </section>
+  </section>`);
+}
+
+function sessionListMarkup(sessions) {
+  const rows = sessions.map((session) => `<div class="session-row">
+      <button class="session-row-main" type="button" data-session-id="${escapeHtml(session.id)}">
+        <span class="note-row-title">${escapeHtml(session.title)}</span>
+        <span class="note-row-meta">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</span>
+      </button>
+      <button class="pin-button" type="button" disabled aria-label="Pinning arrives in Session 5" title="Pinning arrives in Session 5"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
+    </div>`).join('');
+  return shellMarkup(`<section class="view" aria-label="Sessions history list">
+    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span></header>
+    <div class="list-actions"><button class="text-button" id="new-session-button" type="button">+ New Session</button></div>
+    <div class="note-list">${rows}</div>
+  </section>`);
+}
+
+function sessionsEmptyMarkup() {
+  return shellMarkup(`<section class="view" aria-label="Sessions empty state"><div class="empty-state">
+    <h1>No sessions yet</h1><p>Start a session to keep notes alongside the pages you visit.</p>
+    <div><button class="text-button" id="new-session-button" type="button">+ New Session</button></div>
   </div></section>`);
 }
 
+async function showGlobalEditor() {
+  await autosaveSessionContent.flush();
+  state.mode = 'global';
+  state.view = 'editor';
+  state.menuOpen = false;
+  state.currentNote = await ensureInitialGlobalNote();
+  await render();
+}
+
+async function showSessionEditor() {
+  await autosaveGlobalContent.flush();
+  state.mode = 'sessions';
+  state.view = 'editor';
+  state.menuOpen = false;
+  state.currentSession = await getActiveSession();
+  state.sessionContextExpanded = false;
+  await render();
+}
+
 function bindShell() {
-  document.querySelector('#global-tab').addEventListener('click', async () => {
-    if (state.mode === 'global') return;
-    state.mode = 'global'; state.view = 'editor'; state.menuOpen = false;
-    state.currentNote = await ensureInitialGlobalNote();
-    render();
+  document.querySelector('#global-tab').addEventListener('click', () => {
+    if (state.mode !== 'global') showGlobalEditor();
   });
   document.querySelector('#sessions-tab').addEventListener('click', () => {
-    state.mode = 'sessions'; state.menuOpen = false; render();
+    if (state.mode !== 'sessions') showSessionEditor();
   });
   document.querySelector('#list-button').addEventListener('click', async () => {
-    if (state.mode !== 'global') return;
-    await autosaveContent.flush();
-    state.view = 'list'; state.menuOpen = false; render();
+    if (state.mode === 'global') {
+      await autosaveGlobalContent.flush();
+    } else {
+      await autosaveSessionContent.flush();
+    }
+    state.view = 'list';
+    state.menuOpen = false;
+    await render();
   });
   document.querySelector('#menu-button').addEventListener('click', () => {
-    state.menuOpen = !state.menuOpen; render();
+    state.menuOpen = !state.menuOpen;
+    render();
   });
 }
 
-function bindEditor() {
-  const title = document.querySelector('#note-title');
-  const textarea = document.querySelector('#note-content');
-  title.addEventListener('click', () => {
-    const input = document.createElement('input');
-    input.className = 'note-title-input'; input.value = state.currentNote.title; input.setAttribute('aria-label', 'Note title');
-    title.replaceWith(input); input.focus(); input.select();
-    let committed = false;
-    const commit = async () => {
-      if (committed) return;
+function beginTitleEdit({ title, item, label, save }) {
+  const input = document.createElement('input');
+  input.className = 'note-title-input';
+  input.value = item.title;
+  input.setAttribute('aria-label', `${label} title`);
+  title.replaceWith(input);
+  input.focus();
+  input.select();
+  let committed = false;
+  const commit = async () => {
+    if (committed) return;
+    committed = true;
+    const saved = await save(item.id, input.value);
+    if (saved) {
+      if (label === 'Note') state.currentNote = saved;
+      else state.currentSession = saved;
+    }
+    render();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      input.blur();
+    }
+    if (event.key === 'Escape') {
       committed = true;
-      const saved = await renameGlobalNote(state.currentNote.id, input.value);
-      if (saved) state.currentNote = saved;
       render();
-    };
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') { event.preventDefault(); input.blur(); }
-      if (event.key === 'Escape') { committed = true; render(); }
-    });
-  });
-  textarea.addEventListener('input', () => {
-    const { id } = state.currentNote;
-    state.currentNote = { ...state.currentNote, content: textarea.value };
-    autosaveContent(id, textarea.value);
+    }
   });
 }
 
-function bindList() {
-  document.querySelector('#back-button').addEventListener('click', async () => {
-    state.view = 'editor'; state.currentNote = await ensureInitialGlobalNote(); render();
+function bindGlobalEditor() {
+  document.querySelector('#note-title').addEventListener('click', (event) => beginTitleEdit({
+    title: event.currentTarget,
+    item: state.currentNote,
+    label: 'Note',
+    save: renameGlobalNote,
+  }));
+  document.querySelector('#note-content').addEventListener('input', (event) => {
+    const { id } = state.currentNote;
+    state.currentNote = { ...state.currentNote, content: event.currentTarget.value };
+    autosaveGlobalContent(id, event.currentTarget.value);
   });
+}
+
+function bindGlobalList() {
+  document.querySelector('#back-button').addEventListener('click', showGlobalEditor);
   document.querySelector('#new-note-button').addEventListener('click', async () => {
-    state.currentNote = await createGlobalNote(); state.view = 'editor'; render();
+    state.currentNote = await createGlobalNote();
+    state.view = 'editor';
+    await render();
   });
   document.querySelectorAll('[data-note-id]').forEach((button) => button.addEventListener('click', async () => {
-    state.currentNote = await openGlobalNote(button.dataset.noteId); state.view = 'editor'; render();
+    state.currentNote = await openGlobalNote(button.dataset.noteId);
+    state.view = 'editor';
+    await render();
   }));
 }
 
+function bindSessionEditor() {
+  document.querySelector('#session-title').addEventListener('click', (event) => beginTitleEdit({
+    title: event.currentTarget,
+    item: state.currentSession,
+    label: 'Session',
+    save: renameSession,
+  }));
+  document.querySelector('#session-content').addEventListener('input', (event) => {
+    const { id } = state.currentSession;
+    state.currentSession = { ...state.currentSession, content: event.currentTarget.value };
+    autosaveSessionContent(id, event.currentTarget.value);
+  });
+  document.querySelector('#context-toggle').addEventListener('click', () => {
+    state.sessionContextExpanded = !state.sessionContextExpanded;
+    render();
+  });
+}
+
+async function createAndOpenSession() {
+  state.currentSession = await createSession();
+  state.view = 'editor';
+  state.sessionContextExpanded = false;
+  await render();
+}
+
+function bindSessionList() {
+  document.querySelector('#back-button').addEventListener('click', showSessionEditor);
+  document.querySelector('#new-session-button').addEventListener('click', createAndOpenSession);
+  document.querySelectorAll('[data-session-id]').forEach((button) => button.addEventListener('click', async () => {
+    state.currentSession = await openSession(button.dataset.sessionId);
+    state.view = 'editor';
+    state.sessionContextExpanded = false;
+    await render();
+  }));
+}
+
+function bindSessionsEmpty() {
+  document.querySelector('#new-session-button').addEventListener('click', createAndOpenSession);
+}
+
 async function render() {
-  if (state.mode === 'sessions') {
-    app.innerHTML = sessionsMarkup(); bindShell(); return;
+  if (state.mode === 'global') {
+    if (state.view === 'list') {
+      app.innerHTML = globalListMarkup(await getGlobalNotes());
+      bindShell();
+      bindGlobalList();
+      return;
+    }
+    app.innerHTML = globalEditorMarkup();
+    bindShell();
+    bindGlobalEditor();
+    return;
   }
+
   if (state.view === 'list') {
-    app.innerHTML = listMarkup(await getGlobalNotes()); bindShell(); bindList(); return;
+    app.innerHTML = sessionListMarkup(await getSessions());
+    bindShell();
+    bindSessionList();
+    return;
   }
-  app.innerHTML = editorMarkup(); bindShell(); bindEditor();
+  if (!state.currentSession) {
+    app.innerHTML = sessionsEmptyMarkup();
+    bindShell();
+    bindSessionsEmpty();
+    return;
+  }
+  app.innerHTML = sessionEditorMarkup();
+  bindShell();
+  bindSessionEditor();
 }
 
 async function initialize() {
