@@ -97,7 +97,8 @@ button { color: inherit; }
 .empty-state h1 { margin: 0; font-size: 15px; font-weight: 600; }
 .empty-state p { max-width: 245px; margin: 0 0 8px; color: var(--muted); line-height: 1.5; }
 .menu { position: absolute; z-index: 10; top: calc(100% + 4px); right: 0; width: 204px; max-width: calc(100vw - 16px); padding: 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--background); box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
-.menu-item { display: block; width: 100%; padding: 8px 9px; border-radius: 3px; text-align: left; }
+.menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 9px; border-radius: 3px; text-align: left; }
+.menu-icon { width: 15px; height: 15px; flex: 0 0 auto; color: var(--muted); }
 .menu-item:disabled { color: var(--muted); cursor: default; }
 .menu-separator { height: 1px; margin: 4px; background: var(--border); }
 .menu-hint { padding: 8px 9px; color: var(--muted); font-size: 11px; line-height: 1.4; }
