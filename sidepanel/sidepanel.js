@@ -215,8 +215,7 @@ function sessionEditorMarkup() {
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Session editor">
     <div class="editor-header session-editor-header">
       <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
-      <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</div>
-      ${state.recordingActive ? '<div class="session-status" role="status"><span class="recording-dot" aria-hidden="true"></span>Recording</div>' : ''}
+      <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}${state.recordingActive ? ' · <span class="session-status" role="status"><span class="recording-dot" aria-hidden="true"></span>Recording</span>' : ''}</div>
     </div>
     <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
     <section class="session-context" aria-label="Session context">
