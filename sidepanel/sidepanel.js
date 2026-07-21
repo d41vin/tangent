@@ -150,20 +150,24 @@ function dateTime(timestamp) {
 
 function menuMarkup() {
   if (!state.menuOpen) return '';
-  const activeItem = state.mode === 'sessions' ? state.currentSession : state.currentNote;
   const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
-  const editorActions = state.view === 'editor' && activeItem
-    ? `<button class="menu-item" id="copy-button" type="button" role="menuitem">Copy All</button>
-       <button class="menu-item" id="download-button" type="button" role="menuitem">Download as Markdown</button>
-       <button class="menu-item" id="clear-button" type="button" role="menuitem">Clear Note Text</button>
-       <button class="menu-item menu-item-danger" id="delete-button" type="button" role="menuitem">${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</button>
-       <div class="menu-separator"></div>`
-    : '';
   return `<div class="menu" id="actions-menu" role="menu" aria-label="${itemName} actions">
-    ${editorActions}
-    <button class="menu-item" id="settings-button" type="button" role="menuitem">Settings</button>
+    <button class="menu-item" id="copy-button" type="button" role="menuitem">Copy All</button>
+    <button class="menu-item" id="download-button" type="button" role="menuitem">Download as Markdown</button>
+    <button class="menu-item" id="clear-button" type="button" role="menuitem">Clear Note Text</button>
+    <button class="menu-item menu-item-danger" id="delete-button" type="button" role="menuitem">${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</button>
   </div>`;
 }
+
+function itemActionsMarkup() {
+  const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
+  return `<div class="item-actions">
+    <button class="icon-button" id="menu-button" type="button" aria-haspopup="menu" aria-controls="actions-menu" aria-expanded="${state.menuOpen}" aria-label="${itemName} actions" title="${itemName} actions">⋮</button>
+    ${menuMarkup()}
+  </div>`;
+}
+
+const SETTINGS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6l1.4 2.5 2.8-.5.5 2.8 2.5 1.4-1.3 2.5 1.3 2.5-2.5 1.4-.5 2.8-2.8-.5L12 21.4l-1.4-2.5-2.8.5-.5-2.8-2.5-1.4 1.3-2.5-1.3-2.5 2.5-1.4.5-2.8 2.8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 
 function shellMarkup(content) {
   return `<div class="app-shell">
@@ -173,14 +177,14 @@ function shellMarkup(content) {
         <button class="tab" id="sessions-tab" role="tab" aria-controls="sessions-view" aria-selected="${state.mode === 'sessions'}" tabindex="${state.mode === 'sessions' ? '0' : '-1'}">Sessions</button>
       </div>
       <button class="icon-button" id="list-button" type="button" aria-label="Open list view" title="Open list view">☰</button>
-      <button class="icon-button" id="menu-button" type="button" aria-label="Open note actions" aria-haspopup="menu" aria-controls="actions-menu" aria-expanded="${state.menuOpen}" title="Note actions">⋮</button>
-    </header>${content}</div>${menuMarkup()}`;
+      <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">${SETTINGS_ICON}</button>
+    </header>${content}</div>`;
 }
 
 function globalEditorMarkup() {
   const note = state.currentNote;
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global note editor">
-    <div class="editor-header"><button class="note-title" id="note-title" type="button" title="Rename note">${escapeHtml(note.title)}</button></div>
+    <div class="editor-header"><div class="editor-title-row"><button class="note-title" id="note-title" type="button" title="Rename note">${escapeHtml(note.title)}</button>${itemActionsMarkup()}</div></div>
     <textarea class="note-canvas" id="note-content" aria-label="${escapeHtml(note.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(note.content)}</textarea>
   </section>`);
 }
@@ -214,7 +218,7 @@ function sessionEditorMarkup() {
       </a>`).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Session editor">
     <div class="editor-header session-editor-header">
-      <button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>
+      <div class="editor-title-row"><button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>${itemActionsMarkup()}</div>
       <div class="session-metadata">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}${state.recordingActive ? ' · <span class="session-status" role="status"><span class="recording-dot" aria-hidden="true"></span>Recording</span>' : ''}</div>
     </div>
     <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
@@ -375,10 +379,11 @@ function bindShell() {
     disarmDelete();
     await render();
   });
-  document.querySelector('#menu-button').addEventListener('click', () => {
+  const menuButton = document.querySelector('#menu-button');
+  if (menuButton) menuButton.addEventListener('click', () => {
     state.menuOpen = !state.menuOpen;
     if (!state.menuOpen) disarmDelete();
-    else requestFocus('#copy-button, #settings-button');
+    else requestFocus('#copy-button');
     render();
   });
   const settingsButton = document.querySelector('#settings-button');
