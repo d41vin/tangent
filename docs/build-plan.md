@@ -27,3 +27,20 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 
 ## Session 6 - Polish + edge cases
 - [x] Phase 14: Polish + edge-case testing - empty states, transitions, accessibility, resized-panel testing, chrome:// filtering, refresh/back-button dedup, multi-window behavior, service worker suspend/resume, Incognito data-sharing confirmation, large-note performance, keyboard shortcut conflict check
+
+## Session 7 - UI/UX overhaul + backup
+- [x] #5: Fixed delete confirmation being dismissed by the menu focusout race
+- [x] #1: Recording status shown inline with the session metadata line
+- [x] #2.1: Item actions (⋮) moved to the title row; settings gear surfaced in the header
+- [x] #3: Context-aware + button added to the header (order: + ☰ 🔍 ⚙)
+- [x] #4: List button toggles between list and editor with icon change
+- [x] #7: + New moved into the list back-button row
+- [x] #13a: Per-tab search input in the list views
+- [x] #13b: Unified cross-tab search view + header search icon
+- [x] #6: Icons added to the item action menu items
+- [x] #8 + #9: Context list capped at 40vh with scroll + themed scrollbars
+- [x] #10: Global note pinning parity with Sessions
+- [x] #11: Per-link removal in the context accordion (tap-to-confirm)
+- [x] Backup/restore: JSON export + destructive import in Settings
+- [ ] #12: Cross-panel live content sync — deferred, not built
+
