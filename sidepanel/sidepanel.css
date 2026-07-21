@@ -47,6 +47,12 @@ button { color: inherit; }
 .note-canvas::placeholder { color: var(--muted); }
 .note-canvas:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
 .list-new-button { flex: 0 0 auto; padding: 4px 9px; }
+.list-search-row { flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.list-search { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
+.list-search::placeholder { color: var(--muted); }
+.list-search:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.list-empty { margin: 0; padding: 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+.note-row[hidden], .session-row[hidden] { display: none; }
 .text-button { padding: 6px 9px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-weight: 500; }
 .note-list { overflow-y: auto; }
 .note-row { display: block; width: 100%; padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; }

@@ -41,6 +41,7 @@ const state = {
   shortcut: '',
   inIncognitoContext,
   deleteArmed: false,
+  listQuery: '',
 };
 let deleteArmTimeoutId = null;
 let pendingFocusSelector = null;
@@ -201,13 +202,14 @@ function globalEmptyMarkup() {
 }
 
 function globalListMarkup(notes) {
-  const rows = notes.map((note) => `<button class="note-row" type="button" data-note-id="${escapeHtml(note.id)}">
+  const rows = notes.map((note) => `<button class="note-row" type="button" data-note-id="${escapeHtml(note.id)}" data-search="${escapeHtml(note.title.toLowerCase())}">
       <span class="note-row-title">${escapeHtml(note.title)}</span>
       <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
     </button>`).join('');
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
-    <div class="note-list">${rows}</div>
+    <div class="list-search-row"><input class="list-search" id="list-search" type="search" placeholder="Search notes" aria-label="Search notes" value="${escapeHtml(state.listQuery)}"></div>
+    <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching notes.</p></div>
   </section>`);
 }
 
@@ -233,16 +235,21 @@ function sessionEditorMarkup() {
 }
 
 function sessionListMarkup(sessions) {
-  const rows = sessions.map((session) => `<div class="session-row">
+  const rows = sessions.map((session) => {
+    const haystack = [session.title, ...session.links.flatMap((link) => [link.title, link.url])]
+      .filter(Boolean).join(' ').toLowerCase();
+    return `<div class="session-row" data-search="${escapeHtml(haystack)}">
       <button class="session-row-main" type="button" data-session-id="${escapeHtml(session.id)}">
         <span class="note-row-title">${escapeHtml(session.title)}</span>
         <span class="note-row-meta">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</span>
       </button>
       <button class="pin-button${session.pinned ? ' is-pinned' : ''}" type="button" data-pin-session-id="${escapeHtml(session.id)}" aria-label="${session.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(session.title)}" aria-pressed="${Boolean(session.pinned)}" title="${session.pinned ? 'Unpin session' : 'Pin session'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${session.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions history list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span><button class="text-button list-new-button" id="new-session-button" type="button">+ New Session</button></header>
-    <div class="note-list">${rows}</div>
+    <div class="list-search-row"><input class="list-search" id="list-search" type="search" placeholder="Search sessions" aria-label="Search sessions" value="${escapeHtml(state.listQuery)}"></div>
+    <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching sessions.</p></div>
   </section>`);
 }
 
@@ -287,6 +294,7 @@ async function showGlobalEditor() {
   state.mode = 'global';
   state.view = 'editor';
   state.menuOpen = false;
+  state.listQuery = '';
   disarmDelete();
   state.currentNote = await ensureInitialGlobalNote();
   await render();
@@ -297,6 +305,7 @@ async function showSessionEditor() {
   state.mode = 'sessions';
   state.view = 'editor';
   state.menuOpen = false;
+  state.listQuery = '';
   disarmDelete();
   state.currentSession = await getActiveSession();
   state.sessionContextExpanded = false;
@@ -383,6 +392,7 @@ function bindShell() {
     }
     state.view = 'list';
     state.menuOpen = false;
+    state.listQuery = '';
     disarmDelete();
     await render();
   });
@@ -547,6 +557,29 @@ function bindGlobalEditor() {
   });
 }
 
+function applyListFilter() {
+  const query = state.listQuery.trim().toLowerCase();
+  const rows = document.querySelectorAll('[data-search]');
+  let visible = 0;
+  rows.forEach((row) => {
+    const match = !query || row.dataset.search.includes(query);
+    row.hidden = !match;
+    if (match) visible += 1;
+  });
+  const empty = document.querySelector('#list-empty');
+  if (empty) empty.hidden = visible !== 0 || query === '';
+}
+
+function bindListSearch() {
+  const search = document.querySelector('#list-search');
+  if (!search) return;
+  search.addEventListener('input', (event) => {
+    state.listQuery = event.currentTarget.value;
+    applyListFilter();
+  });
+  applyListFilter();
+}
+
 function bindGlobalList() {
   document.querySelector('#back-button').addEventListener('click', showGlobalEditor);
   document.querySelector('#new-note-button').addEventListener('click', createAndOpenNote);
@@ -555,6 +588,7 @@ function bindGlobalList() {
     state.view = 'editor';
     await render();
   }));
+  bindListSearch();
 }
 
 function bindSessionEditor() {
@@ -610,6 +644,7 @@ function bindSessionList() {
     await toggleSessionPinned(button.dataset.pinSessionId);
     await render();
   }));
+  bindListSearch();
 }
 
 function bindSessionsEmpty() {
