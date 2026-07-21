@@ -206,8 +206,7 @@ function globalListMarkup(notes) {
       <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
     </button>`).join('');
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
-    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span></header>
-    <div class="list-actions"><button class="text-button" id="new-note-button" type="button">+ New Note</button></div>
+    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
     <div class="note-list">${rows}</div>
   </section>`);
 }
@@ -242,8 +241,7 @@ function sessionListMarkup(sessions) {
       <button class="pin-button${session.pinned ? ' is-pinned' : ''}" type="button" data-pin-session-id="${escapeHtml(session.id)}" aria-label="${session.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(session.title)}" aria-pressed="${Boolean(session.pinned)}" title="${session.pinned ? 'Unpin session' : 'Pin session'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${session.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
     </div>`).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions history list">
-    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span></header>
-    <div class="list-actions"><button class="text-button" id="new-session-button" type="button">+ New Session</button></div>
+    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span><button class="text-button list-new-button" id="new-session-button" type="button">+ New Session</button></header>
     <div class="note-list">${rows}</div>
   </section>`);
 }
