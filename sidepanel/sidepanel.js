@@ -482,7 +482,15 @@ function bindShell() {
   const settingsButton = document.querySelector('#settings-button');
   if (settingsButton) settingsButton.addEventListener('click', showSettings);
   const searchButton = document.querySelector('#search-button');
-  if (searchButton) searchButton.addEventListener('click', showSearch);
+  if (searchButton) searchButton.addEventListener('click', async () => {
+    if (state.view === 'search') {
+      await flushCurrentAutosave();
+      if (state.mode === 'sessions') await showSessionEditor();
+      else await showGlobalEditor();
+      return;
+    }
+    await showSearch();
+  });
   const copyButton = document.querySelector('#copy-button');
   if (copyButton) copyButton.addEventListener('click', copyCurrentItem);
   const downloadButton = document.querySelector('#download-button');
