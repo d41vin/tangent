@@ -26,15 +26,15 @@ button { color: inherit; }
 .topbar, .view-header { display: flex; align-items: center; min-height: 42px; border-bottom: 1px solid var(--border); }
 .topbar { min-width: 0; padding: 0 8px; gap: 2px; }
 .tabs { display: flex; min-width: 0; align-self: stretch; flex: 1; gap: 2px; }
-.tab, .icon-button, .text-button, .menu-item, .note-row, .session-row-main, .context-toggle { appearance: none; border: 0; background: transparent; cursor: pointer; }
+.tab, .icon-button, .text-button, .menu-item, .note-row, .session-row-main, .context-toggle, .search-row { appearance: none; border: 0; background: transparent; cursor: pointer; }
 .tab { position: relative; padding: 0 9px; color: var(--muted); font-weight: 500; }
 .tab[aria-selected="true"] { color: var(--text); }
 .tab[aria-selected="true"]::after { position: absolute; right: 8px; bottom: 0; left: 8px; height: 1px; background: var(--text); content: ""; }
 .icon-button { display: grid; width: 30px; height: 30px; border-radius: 4px; place-items: center; color: var(--muted); font-size: 17px; line-height: 1; }
 .header-icon { display: block; width: 17px; height: 17px; }
 .icon-button.is-active { color: var(--text); background: var(--hover); }
-.icon-button:hover, .text-button:hover, .note-row:hover, .menu-item:hover, .pin-button:hover { background: var(--hover); }
-.icon-button:focus-visible, .tab:focus-visible, .text-button:focus-visible, .note-row:focus-visible, .session-row-main:focus-visible, .context-toggle:focus-visible, .menu-item:focus-visible, .note-title:focus-visible, .note-title-input:focus-visible, .settings-toggle:focus-visible, .settings-select:focus-visible, .pin-button:focus-visible, .context-link:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.icon-button:hover, .text-button:hover, .note-row:hover, .menu-item:hover, .pin-button:hover, .search-row:hover { background: var(--hover); }
+.icon-button:focus-visible, .tab:focus-visible, .text-button:focus-visible, .note-row:focus-visible, .session-row-main:focus-visible, .context-toggle:focus-visible, .menu-item:focus-visible, .note-title:focus-visible, .note-title-input:focus-visible, .settings-toggle:focus-visible, .settings-select:focus-visible, .pin-button:focus-visible, .context-link:focus-visible, .search-row:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
 .view { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; animation: view-in 120ms ease-out both; }
 .view-header { padding: 0 12px; gap: 8px; font-weight: 600; }
 .view-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -53,6 +53,15 @@ button { color: inherit; }
 .list-search:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
 .list-empty { margin: 0; padding: 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
 .note-row[hidden], .session-row[hidden] { display: none; }
+.search-results { overflow-y: auto; }
+.search-hint { margin: 0; padding: 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+.search-group { border-bottom: 1px solid var(--border); }
+.search-group[hidden] { display: none; }
+.search-group-title { margin: 0; padding: 10px 16px 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.search-row { display: block; width: 100%; padding: 11px 16px; text-align: left; }
+.search-row[hidden] { display: none; }
+.search-row-title { display: block; overflow: hidden; color: var(--text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.search-row-meta { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 .text-button { padding: 6px 9px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-weight: 500; }
 .note-list { overflow-y: auto; }
 .note-row { display: block; width: 100%; padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; }

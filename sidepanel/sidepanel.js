@@ -42,6 +42,7 @@ const state = {
   inIncognitoContext,
   deleteArmed: false,
   listQuery: '',
+  searchQuery: '',
 };
 let deleteArmTimeoutId = null;
 let pendingFocusSelector = null;
@@ -170,10 +171,12 @@ function itemActionsMarkup() {
 
 const SETTINGS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6l1.4 2.5 2.8-.5.5 2.8 2.5 1.4-1.3 2.5 1.3 2.5-2.5 1.4-.5 2.8-2.8-.5L12 21.4l-1.4-2.5-2.8.5-.5-2.8-2.5-1.4 1.3-2.5-1.3-2.5 2.5-1.4.5-2.8 2.8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 const PLUS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+const SEARCH_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.4 4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
 
 function shellMarkup(content) {
   const newLabel = state.mode === 'sessions' ? 'New session' : 'New note';
   const listActive = state.view === 'list';
+  const searchActive = state.view === 'search';
   return `<div class="app-shell">
     <header class="topbar">
       <div class="tabs" role="tablist" aria-label="Tangent mode">
@@ -182,6 +185,7 @@ function shellMarkup(content) {
       </div>
       <button class="icon-button" id="new-button" type="button" aria-label="${newLabel}" title="${newLabel}">${PLUS_ICON}</button>
       <button class="icon-button${listActive ? ' is-active' : ''}" id="list-button" type="button" aria-pressed="${listActive}" aria-label="${listActive ? 'Back to editor' : 'Open list view'}" title="${listActive ? 'Back to editor' : 'Open list view'}">${listActive ? '✕' : '☰'}</button>
+      <button class="icon-button${searchActive ? ' is-active' : ''}" id="search-button" type="button" aria-pressed="${searchActive}" aria-label="Search everything" title="Search everything">${SEARCH_ICON}</button>
       <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">${SETTINGS_ICON}</button>
     </header>${content}</div>`;
 }
@@ -287,6 +291,41 @@ function settingsMarkup() {
       </section>
     </div>
   </section>`);
+}
+
+function searchMarkup(notes, sessions) {
+  const noteRows = notes.map((note) => `<button class="search-row" type="button" data-search-note-id="${escapeHtml(note.id)}" data-search="${escapeHtml(`${note.title} ${note.content}`.toLowerCase())}">
+      <span class="search-row-title">${escapeHtml(note.title)}</span>
+      <span class="search-row-meta">${relativeTime(note.updatedAt)}</span>
+    </button>`).join('');
+  const sessionRows = sessions.map((session) => {
+    const haystack = [session.title, session.content, ...session.links.flatMap((link) => [link.title, link.url])]
+      .filter(Boolean).join(' ').toLowerCase();
+    return `<button class="search-row" type="button" data-search-session-id="${escapeHtml(session.id)}" data-search="${escapeHtml(haystack)}">
+      <span class="search-row-title">${escapeHtml(session.title)}</span>
+      <span class="search-row-meta">Created ${dateTime(session.createdAt)} · ${relativeTime(session.updatedAt)}</span>
+    </button>`;
+  }).join('');
+  return shellMarkup(`<section class="view" id="search-view" role="tabpanel" aria-label="Search everything">
+    <header class="view-header"><button class="icon-button" id="search-back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Search everything</span></header>
+    <div class="list-search-row"><input class="list-search" id="unified-search" type="search" placeholder="Search all notes and sessions" aria-label="Search all notes and sessions" value="${escapeHtml(state.searchQuery)}"></div>
+    <div class="search-results" id="search-results">
+      <p class="search-hint" id="search-hint">Search across every Global note and Session at once.</p>
+      <p class="list-empty" id="search-empty" hidden>No matches.</p>
+      <section class="search-group" data-group hidden><h2 class="search-group-title">Global Notes</h2>${noteRows}</section>
+      <section class="search-group" data-group hidden><h2 class="search-group-title">Sessions</h2>${sessionRows}</section>
+    </div>
+  </section>`);
+}
+
+async function showSearch() {
+  await flushCurrentAutosave();
+  state.view = 'search';
+  state.menuOpen = false;
+  state.searchQuery = '';
+  disarmDelete();
+  requestFocus('#unified-search');
+  await render();
 }
 
 async function showGlobalEditor() {
@@ -405,6 +444,8 @@ function bindShell() {
   });
   const settingsButton = document.querySelector('#settings-button');
   if (settingsButton) settingsButton.addEventListener('click', showSettings);
+  const searchButton = document.querySelector('#search-button');
+  if (searchButton) searchButton.addEventListener('click', showSearch);
   const copyButton = document.querySelector('#copy-button');
   if (copyButton) copyButton.addEventListener('click', copyCurrentItem);
   const downloadButton = document.querySelector('#download-button');
@@ -580,6 +621,53 @@ function bindListSearch() {
   applyListFilter();
 }
 
+function applySearchFilter() {
+  const query = state.searchQuery.trim().toLowerCase();
+  const rows = document.querySelectorAll('#search-results [data-search]');
+  let total = 0;
+  rows.forEach((row) => {
+    const match = query !== '' && row.dataset.search.includes(query);
+    row.hidden = !match;
+    if (match) total += 1;
+  });
+  document.querySelectorAll('#search-results [data-group]').forEach((group) => {
+    const anyVisible = [...group.querySelectorAll('[data-search]')].some((row) => !row.hidden);
+    group.hidden = !anyVisible;
+  });
+  const hint = document.querySelector('#search-hint');
+  if (hint) hint.hidden = query !== '';
+  const empty = document.querySelector('#search-empty');
+  if (empty) empty.hidden = !(query !== '' && total === 0);
+}
+
+function bindSearch() {
+  document.querySelector('#search-back-button').addEventListener('click', async () => {
+    if (state.mode === 'sessions') await showSessionEditor();
+    else await showGlobalEditor();
+  });
+  document.querySelector('#unified-search').addEventListener('input', (event) => {
+    state.searchQuery = event.currentTarget.value;
+    applySearchFilter();
+  });
+  document.querySelectorAll('[data-search-note-id]').forEach((button) => button.addEventListener('click', async () => {
+    state.mode = 'global';
+    state.currentNote = await openGlobalNote(button.dataset.searchNoteId);
+    state.view = 'editor';
+    state.searchQuery = '';
+    await render();
+  }));
+  document.querySelectorAll('[data-search-session-id]').forEach((button) => button.addEventListener('click', async () => {
+    state.mode = 'sessions';
+    state.currentSession = await openSession(button.dataset.searchSessionId);
+    state.view = 'editor';
+    state.sessionContextExpanded = false;
+    state.searchQuery = '';
+    await render();
+    captureActiveTabForSession();
+  }));
+  applySearchFilter();
+}
+
 function bindGlobalList() {
   document.querySelector('#back-button').addEventListener('click', showGlobalEditor);
   document.querySelector('#new-note-button').addEventListener('click', createAndOpenNote);
@@ -693,7 +781,12 @@ function bindSettings() {
 }
 
 async function render() {
-  if (state.view === 'settings') {
+  if (state.view === 'search') {
+    const [notes, sessions] = await Promise.all([getGlobalNotes(), getSessions()]);
+    app.innerHTML = searchMarkup(notes, sessions);
+    bindShell();
+    bindSearch();
+  } else if (state.view === 'settings') {
     app.innerHTML = settingsMarkup();
     bindShell();
     bindSettings();
