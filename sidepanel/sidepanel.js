@@ -328,10 +328,12 @@ function bindMenuKeyboard() {
       closeMenu({ restoreFocus: true });
     }
   }));
-  menu.addEventListener('focusout', () => {
-    requestAnimationFrame(() => {
-      if (state.menuOpen && !menu.contains(document.activeElement)) closeMenu();
-    });
+  menu.addEventListener('focusout', (event) => {
+    // A re-render (e.g. arming delete) detaches the focused item and reports a
+    // null relatedTarget; that is not a real move away, so ignore it. Only close
+    // when focus genuinely lands on something outside the menu.
+    const next = event.relatedTarget;
+    if (next && !menu.contains(next)) closeMenu();
   });
 }
 
@@ -479,6 +481,7 @@ async function handleDelete() {
   }
 
   state.deleteArmed = true;
+  requestFocus('#delete-button');
   deleteArmTimeoutId = setTimeout(() => {
     state.deleteArmed = false;
     deleteArmTimeoutId = null;
