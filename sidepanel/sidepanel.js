@@ -12,6 +12,7 @@ import {
   openSession,
   renameGlobalNote,
   renameSession,
+  removeSessionLink,
   saveGlobalNoteContent,
   saveSessionContent,
   getTrackingSettings,
@@ -44,8 +45,10 @@ const state = {
   deleteArmed: false,
   listQuery: '',
   searchQuery: '',
+  linkRemoveArmed: null,
 };
 let deleteArmTimeoutId = null;
+let linkRemoveArmTimeoutId = null;
 let pendingFocusSelector = null;
 
 function requestFocus(selector) {
@@ -178,6 +181,8 @@ const COPY_ICON = `<svg ${MENU_ICON_ATTRS}><rect x="8.5" y="8.5" width="11" heig
 const DOWNLOAD_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>`;
 const CLEAR_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M9 20h10"/><path d="M15.5 5.5l3 3-8 8H7l-2.5-2.5a1.5 1.5 0 0 1 0-2z"/></svg>`;
 const DELETE_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M5 7h14"/><path d="M9 7V5h6v2"/><path d="M7.5 7l.8 12h7.4l.8-12"/></svg>`;
+const LINK_REMOVE_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const LINK_CONFIRM_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"/></svg>';
 
 function shellMarkup(content) {
   const newLabel = state.mode === 'sessions' ? 'New session' : 'New note';
@@ -230,10 +235,17 @@ function sessionEditorMarkup() {
   const session = state.currentSession;
   const context = session.links.length === 0
     ? '<p class="context-empty">No pages recorded yet.</p>'
-    : session.links.map((link) => `<a class="context-link" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
-        <img class="link-favicon" src="${escapeHtml(getFaviconUrl(link.url))}" width="16" height="16" alt="">
-        <span class="context-link-copy"><span class="context-link-title">${escapeHtml(link.title || link.url)}</span><span class="context-link-url">${escapeHtml(link.url)}</span></span>
-      </a>`).join('');
+    : session.links.map((link) => {
+        const armed = state.linkRemoveArmed === link.url;
+        const label = escapeHtml(link.title || link.url);
+        return `<div class="context-link-row">
+        <a class="context-link" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
+          <img class="link-favicon" src="${escapeHtml(getFaviconUrl(link.url))}" width="16" height="16" alt="">
+          <span class="context-link-copy"><span class="context-link-title">${escapeHtml(link.title || link.url)}</span><span class="context-link-url">${escapeHtml(link.url)}</span></span>
+        </a>
+        <button class="link-remove${armed ? ' is-armed' : ''}" type="button" data-remove-link="${escapeHtml(link.url)}" aria-label="${armed ? 'Confirm remove' : 'Remove'} ${label}" title="${armed ? 'Tap again to remove' : 'Remove from context'}">${armed ? LINK_CONFIRM_ICON : LINK_REMOVE_ICON}</button>
+      </div>`;
+      }).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Session editor">
     <div class="editor-header session-editor-header">
       <div class="editor-title-row"><button class="note-title" id="session-title" type="button" title="Rename session">${escapeHtml(session.title)}</button>${itemActionsMarkup()}</div>
@@ -357,6 +369,7 @@ async function showSessionEditor() {
   disarmDelete();
   state.currentSession = await getActiveSession();
   state.sessionContextExpanded = false;
+  disarmLinkRemove();
   await render();
   if (state.currentSession) captureActiveTabForSession();
 }
@@ -530,6 +543,30 @@ function disarmDelete() {
   state.deleteArmed = false;
   if (deleteArmTimeoutId) clearTimeout(deleteArmTimeoutId);
   deleteArmTimeoutId = null;
+}
+
+function disarmLinkRemove() {
+  state.linkRemoveArmed = null;
+  if (linkRemoveArmTimeoutId) clearTimeout(linkRemoveArmTimeoutId);
+  linkRemoveArmTimeoutId = null;
+}
+
+async function handleRemoveLink(url) {
+  if (state.linkRemoveArmed === url) {
+    disarmLinkRemove();
+    const updated = await removeSessionLink(state.currentSession.id, url);
+    if (updated) state.currentSession = updated;
+    await render();
+    return;
+  }
+  if (linkRemoveArmTimeoutId) clearTimeout(linkRemoveArmTimeoutId);
+  state.linkRemoveArmed = url;
+  linkRemoveArmTimeoutId = setTimeout(() => {
+    state.linkRemoveArmed = null;
+    linkRemoveArmTimeoutId = null;
+    if (state.mode === 'sessions' && state.view === 'editor' && state.sessionContextExpanded) render();
+  }, 3000);
+  await render();
 }
 
 async function deleteCurrentItem() {
@@ -706,11 +743,13 @@ function bindSessionEditor() {
   });
   document.querySelector('#context-toggle').addEventListener('click', () => {
     state.sessionContextExpanded = !state.sessionContextExpanded;
+    if (!state.sessionContextExpanded) disarmLinkRemove();
     render();
   });
   document.querySelectorAll('.link-favicon').forEach((favicon) => {
     favicon.addEventListener('error', () => { favicon.hidden = true; });
   });
+  document.querySelectorAll('[data-remove-link]').forEach((button) => button.addEventListener('click', () => handleRemoveLink(button.dataset.removeLink)));
 }
 
 async function createAndOpenSession() {
