@@ -25,6 +25,7 @@ import { formatNoteForExport, markdownFilename } from '../lib/formatter.js';
 
 const app = document.querySelector('#app');
 const panelPort = chrome.runtime.connect({ name: 'tangent-panel' });
+const PANEL_HEARTBEAT_MS = 20_000;
 const inIncognitoContext = Boolean(chrome.extension?.inIncognitoContext);
 const state = {
   mode: 'global',
@@ -55,6 +56,10 @@ function publishPanelState() {
     sessionId: state.mode === 'sessions' ? state.currentSession?.id ?? null : null,
     inIncognito: state.inIncognitoContext,
   });
+}
+
+function captureActiveTabForSession() {
+  panelPort.postMessage({ type: 'capture-active-tab' });
 }
 
 panelPort.onMessage.addListener((message) => {
@@ -98,6 +103,13 @@ async function refreshShortcutStatus() {
   const actionCommand = commands.find((command) => command.name === '_execute_action');
   state.shortcut = actionCommand?.shortcut ?? '';
 }
+
+// Chrome 114+ does not keep a worker alive merely because a port is open.
+// While the visible Sessions panel is actively recording, a tiny state message
+// keeps that live panel signal reliable without persisting stale state.
+window.setInterval(() => {
+  if (state.mode === 'sessions' && state.currentSession) publishPanelState();
+}, PANEL_HEARTBEAT_MS);
 
 const autosaveGlobalContent = debounce(async (id, content) => {
   const saved = await saveGlobalNoteContent(id, content);
@@ -284,6 +296,7 @@ async function showSessionEditor() {
   state.currentSession = await getActiveSession();
   state.sessionContextExpanded = false;
   await render();
+  if (state.currentSession) captureActiveTabForSession();
 }
 
 function closeMenu({ restoreFocus = false } = {}) {
@@ -560,7 +573,7 @@ async function createAndOpenSession() {
   state.view = 'editor';
   state.sessionContextExpanded = false;
   await render();
-  panelPort.postMessage({ type: 'capture-active-tab' });
+  captureActiveTabForSession();
 }
 
 function bindSessionList() {
@@ -571,6 +584,7 @@ function bindSessionList() {
     state.view = 'editor';
     state.sessionContextExpanded = false;
     await render();
+    captureActiveTabForSession();
   }));
   document.querySelectorAll('[data-pin-session-id]').forEach((button) => button.addEventListener('click', async () => {
     await toggleSessionPinned(button.dataset.pinSessionId);
