@@ -168,14 +168,17 @@ function itemActionsMarkup() {
 }
 
 const SETTINGS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6l1.4 2.5 2.8-.5.5 2.8 2.5 1.4-1.3 2.5 1.3 2.5-2.5 1.4-.5 2.8-2.8-.5L12 21.4l-1.4-2.5-2.8.5-.5-2.8-2.5-1.4 1.3-2.5-1.3-2.5 2.5-1.4.5-2.8 2.8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+const PLUS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
 
 function shellMarkup(content) {
+  const newLabel = state.mode === 'sessions' ? 'New session' : 'New note';
   return `<div class="app-shell">
     <header class="topbar">
       <div class="tabs" role="tablist" aria-label="Tangent mode">
         <button class="tab" id="global-tab" role="tab" aria-controls="global-view" aria-selected="${state.mode === 'global'}" tabindex="${state.mode === 'global' ? '0' : '-1'}">Global</button>
         <button class="tab" id="sessions-tab" role="tab" aria-controls="sessions-view" aria-selected="${state.mode === 'sessions'}" tabindex="${state.mode === 'sessions' ? '0' : '-1'}">Sessions</button>
       </div>
+      <button class="icon-button" id="new-button" type="button" aria-label="${newLabel}" title="${newLabel}">${PLUS_ICON}</button>
       <button class="icon-button" id="list-button" type="button" aria-label="Open list view" title="Open list view">☰</button>
       <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">${SETTINGS_ICON}</button>
     </header>${content}</div>`;
@@ -368,6 +371,8 @@ function bindShell() {
       nextTab.focus();
     }
   }));
+  const newButton = document.querySelector('#new-button');
+  if (newButton) newButton.addEventListener('click', createContextItem);
   document.querySelector('#list-button').addEventListener('click', async () => {
     if (state.mode === 'global') {
       await autosaveGlobalContent.flush();
@@ -542,11 +547,7 @@ function bindGlobalEditor() {
 
 function bindGlobalList() {
   document.querySelector('#back-button').addEventListener('click', showGlobalEditor);
-  document.querySelector('#new-note-button').addEventListener('click', async () => {
-    state.currentNote = await createGlobalNote();
-    state.view = 'editor';
-    await render();
-  });
+  document.querySelector('#new-note-button').addEventListener('click', createAndOpenNote);
   document.querySelectorAll('[data-note-id]').forEach((button) => button.addEventListener('click', async () => {
     state.currentNote = await openGlobalNote(button.dataset.noteId);
     state.view = 'editor';
@@ -583,6 +584,16 @@ async function createAndOpenSession() {
   captureActiveTabForSession();
 }
 
+async function createAndOpenNote() {
+  state.currentNote = await createGlobalNote();
+  state.view = 'editor';
+  await render();
+}
+
+function createContextItem() {
+  return state.mode === 'sessions' ? createAndOpenSession() : createAndOpenNote();
+}
+
 function bindSessionList() {
   document.querySelector('#back-button').addEventListener('click', showSessionEditor);
   document.querySelector('#new-session-button').addEventListener('click', createAndOpenSession);
@@ -604,11 +615,7 @@ function bindSessionsEmpty() {
 }
 
 function bindGlobalEmpty() {
-  document.querySelector('#new-note-button').addEventListener('click', async () => {
-    state.currentNote = await createGlobalNote();
-    state.view = 'editor';
-    await render();
-  });
+  document.querySelector('#new-note-button').addEventListener('click', createAndOpenNote);
 }
 
 async function showSettings() {
