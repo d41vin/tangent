@@ -18,6 +18,7 @@ import {
   setDeepDiveTracking,
   setTheme,
   setTrackingPaused,
+  toggleGlobalNotePinned,
   toggleSessionPinned,
 } from '../lib/storage.js';
 import { getFaviconUrl } from '../lib/favicon.js';
@@ -211,10 +212,13 @@ function globalEmptyMarkup() {
 }
 
 function globalListMarkup(notes) {
-  const rows = notes.map((note) => `<button class="note-row" type="button" data-note-id="${escapeHtml(note.id)}" data-search="${escapeHtml(note.title.toLowerCase())}">
-      <span class="note-row-title">${escapeHtml(note.title)}</span>
-      <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
-    </button>`).join('');
+  const rows = notes.map((note) => `<div class="session-row" data-search="${escapeHtml(note.title.toLowerCase())}">
+      <button class="session-row-main" type="button" data-note-id="${escapeHtml(note.id)}">
+        <span class="note-row-title">${escapeHtml(note.title)}</span>
+        <span class="note-row-meta">${relativeTime(note.updatedAt)}</span>
+      </button>
+      <button class="pin-button${note.pinned ? ' is-pinned' : ''}" type="button" data-pin-note-id="${escapeHtml(note.id)}" aria-label="${note.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(note.title)}" aria-pressed="${Boolean(note.pinned)}" title="${note.pinned ? 'Unpin note' : 'Pin note'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${note.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
+    </div>`).join('');
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
     <div class="list-search-row"><input class="list-search" id="list-search" type="search" placeholder="Search notes" aria-label="Search notes" value="${escapeHtml(state.listQuery)}"></div>
@@ -679,6 +683,10 @@ function bindGlobalList() {
   document.querySelectorAll('[data-note-id]').forEach((button) => button.addEventListener('click', async () => {
     state.currentNote = await openGlobalNote(button.dataset.noteId);
     state.view = 'editor';
+    await render();
+  }));
+  document.querySelectorAll('[data-pin-note-id]').forEach((button) => button.addEventListener('click', async () => {
+    await toggleGlobalNotePinned(button.dataset.pinNoteId);
     await render();
   }));
   bindListSearch();
