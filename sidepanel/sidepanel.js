@@ -172,6 +172,7 @@ const PLUS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="tru
 
 function shellMarkup(content) {
   const newLabel = state.mode === 'sessions' ? 'New session' : 'New note';
+  const listActive = state.view === 'list';
   return `<div class="app-shell">
     <header class="topbar">
       <div class="tabs" role="tablist" aria-label="Tangent mode">
@@ -179,7 +180,7 @@ function shellMarkup(content) {
         <button class="tab" id="sessions-tab" role="tab" aria-controls="sessions-view" aria-selected="${state.mode === 'sessions'}" tabindex="${state.mode === 'sessions' ? '0' : '-1'}">Sessions</button>
       </div>
       <button class="icon-button" id="new-button" type="button" aria-label="${newLabel}" title="${newLabel}">${PLUS_ICON}</button>
-      <button class="icon-button" id="list-button" type="button" aria-label="Open list view" title="Open list view">☰</button>
+      <button class="icon-button${listActive ? ' is-active' : ''}" id="list-button" type="button" aria-pressed="${listActive}" aria-label="${listActive ? 'Back to editor' : 'Open list view'}" title="${listActive ? 'Back to editor' : 'Open list view'}">${listActive ? '✕' : '☰'}</button>
       <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">${SETTINGS_ICON}</button>
     </header>${content}</div>`;
 }
@@ -374,10 +375,13 @@ function bindShell() {
   const newButton = document.querySelector('#new-button');
   if (newButton) newButton.addEventListener('click', createContextItem);
   document.querySelector('#list-button').addEventListener('click', async () => {
-    if (state.mode === 'global') {
-      await autosaveGlobalContent.flush();
-    } else {
-      await autosaveSessionContent.flush();
+    await flushCurrentAutosave();
+    // The list button doubles as open/close: from the list (or settings) it
+    // returns to the editor, otherwise it opens the list.
+    if (state.view === 'list') {
+      if (state.mode === 'global') await showGlobalEditor();
+      else await showSessionEditor();
+      return;
     }
     state.view = 'list';
     state.menuOpen = false;
