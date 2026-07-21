@@ -5,9 +5,11 @@ import {
   deleteGlobalNote,
   deleteSession,
   ensureInitialGlobalNote,
+  exportData,
   getActiveSession,
   getGlobalNotes,
   getSessions,
+  importData,
   openGlobalNote,
   openSession,
   renameGlobalNote,
@@ -46,9 +48,12 @@ const state = {
   listQuery: '',
   searchQuery: '',
   linkRemoveArmed: null,
+  settingsNotice: '',
+  pendingImport: null,
 };
 let deleteArmTimeoutId = null;
 let linkRemoveArmTimeoutId = null;
+let importArmTimeoutId = null;
 let pendingFocusSelector = null;
 
 function requestFocus(selector) {
@@ -309,6 +314,16 @@ function settingsMarkup() {
         <div class="settings-item-header"><span class="settings-label">Deep Dive tracking</span><button class="settings-toggle" id="deep-dive-toggle" type="button" aria-pressed="${deepDiveActive}" ${deepDiveAvailable ? '' : 'disabled'}>${status}</button></div>
         <p>Keep recording session links even when the panel is closed. Automatically turned off while browsing in Incognito.</p>
         ${pauseControl}
+      </section>
+      <section class="settings-item">
+        <div class="settings-item-header"><span class="settings-label">Backup &amp; restore</span></div>
+        <p>Save every note and session to a JSON file, or replace all current data from a backup.</p>
+        <div class="settings-actions">
+          <button class="text-button" id="export-button" type="button">Export backup</button>
+          <button class="text-button${state.pendingImport ? ' is-armed' : ''}" id="import-button" type="button">${state.pendingImport ? 'Confirm restore — replaces all data' : 'Import backup'}</button>
+          <input class="visually-hidden" id="import-file" type="file" accept="application/json,.json" tabindex="-1" aria-hidden="true">
+        </div>
+        ${state.settingsNotice ? `<p class="settings-notice" role="status">${escapeHtml(state.settingsNotice)}</p>` : ''}
       </section>
     </div>
   </section>`);
@@ -800,12 +815,79 @@ async function showSettings() {
   else await autosaveSessionContent.flush();
   state.view = 'settings';
   state.menuOpen = false;
+  clearImportState();
   await Promise.all([refreshTrackingSettings(), refreshShortcutStatus()]);
+  await render();
+}
+
+function clearImportState() {
+  state.pendingImport = null;
+  state.settingsNotice = '';
+  if (importArmTimeoutId) clearTimeout(importArmTimeoutId);
+  importArmTimeoutId = null;
+}
+
+async function handleExport() {
+  const payload = await exportData();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `tangent-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  state.settingsNotice = 'Backup exported.';
+  await render();
+}
+
+function handleImportFile(input) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    if (importArmTimeoutId) clearTimeout(importArmTimeoutId);
+    try {
+      state.pendingImport = JSON.parse(String(reader.result));
+      state.settingsNotice = 'Ready to restore. Tap Confirm to replace all current data.';
+      importArmTimeoutId = setTimeout(() => {
+        clearImportState();
+        if (state.view === 'settings') render();
+      }, 8000);
+    } catch (error) {
+      state.pendingImport = null;
+      state.settingsNotice = 'That file could not be read as JSON.';
+    }
+    await render();
+  };
+  reader.onerror = async () => {
+    state.settingsNotice = 'That file could not be read.';
+    await render();
+  };
+  reader.readAsText(file);
+}
+
+async function confirmImport() {
+  const payload = state.pendingImport;
+  if (importArmTimeoutId) clearTimeout(importArmTimeoutId);
+  importArmTimeoutId = null;
+  state.pendingImport = null;
+  try {
+    await importData(payload);
+    state.mode = 'global';
+    state.currentNote = await ensureInitialGlobalNote();
+    state.currentSession = null;
+    await Promise.all([refreshTrackingSettings(), refreshShortcutStatus()]);
+    state.settingsNotice = 'Backup restored.';
+  } catch (error) {
+    state.settingsNotice = error.message || 'Import failed.';
+  }
   await render();
 }
 
 function bindSettings() {
   document.querySelector('#settings-back-button').addEventListener('click', async () => {
+    clearImportState();
     state.view = 'editor';
     await render();
   });
@@ -829,6 +911,17 @@ function bindSettings() {
       await refreshTrackingSettings();
       await render();
     });
+  }
+  const exportButton = document.querySelector('#export-button');
+  if (exportButton) exportButton.addEventListener('click', handleExport);
+  const importButton = document.querySelector('#import-button');
+  const importFile = document.querySelector('#import-file');
+  if (importButton && importFile) {
+    importButton.addEventListener('click', () => {
+      if (state.pendingImport) confirmImport();
+      else importFile.click();
+    });
+    importFile.addEventListener('change', () => handleImportFile(importFile));
   }
 }
 

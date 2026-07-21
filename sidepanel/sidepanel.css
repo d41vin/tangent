@@ -124,6 +124,10 @@ button { color: inherit; }
 .settings-toggle:hover:not(:disabled) { background: var(--hover); }
 .settings-toggle:disabled { color: var(--muted); cursor: default; }
 .settings-control { margin-top: 12px; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.settings-notice { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.text-button.is-armed { border-color: var(--text); color: var(--text); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 @keyframes recording-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
