@@ -86,6 +86,7 @@ button { color: inherit; }
 .settings-item { padding: 16px 0; border-bottom: 1px solid var(--border); }
 .settings-item-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .settings-label { font-weight: 600; }
+.settings-value { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
 .settings-item p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .settings-toggle { appearance: none; flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; font-weight: 500; }
 .settings-select { appearance: auto; flex: 0 0 auto; min-width: 86px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: 12px; }

@@ -37,6 +37,7 @@ const state = {
   deepDiveTracking: false,
   trackingPaused: false,
   theme: 'system',
+  shortcut: '',
   inIncognitoContext,
   deleteArmed: false,
 };
@@ -90,6 +91,12 @@ async function refreshTrackingSettings() {
   state.trackingPaused = trackingPaused;
   state.theme = settings.theme;
   applyTheme(state.theme);
+}
+
+async function refreshShortcutStatus() {
+  const commands = await chrome.commands.getAll();
+  const actionCommand = commands.find((command) => command.name === '_execute_action');
+  state.shortcut = actionCommand?.shortcut ?? '';
 }
 
 const autosaveGlobalContent = debounce(async (id, content) => {
@@ -244,6 +251,10 @@ function settingsMarkup() {
     <div class="settings-list">
       <section class="settings-item">
         <div class="settings-item-header"><label class="settings-label" for="theme-select">Theme</label><select class="settings-select" id="theme-select" aria-label="Theme"><option value="system" ${state.theme === 'system' ? 'selected' : ''}>System</option><option value="light" ${state.theme === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${state.theme === 'dark' ? 'selected' : ''}>Dark</option></select></div>
+      </section>
+      <section class="settings-item">
+        <div class="settings-item-header"><span class="settings-label">Keyboard shortcut</span><span class="settings-value">${state.shortcut ? escapeHtml(state.shortcut) : 'Not assigned'}</span></div>
+        <p>${state.shortcut ? 'Chrome manages this shortcut. Change it at chrome://extensions/shortcuts.' : 'Another shortcut may already be using Tangent’s default. Assign one at chrome://extensions/shortcuts.'}</p>
       </section>
       <section class="settings-item">
         <div class="settings-item-header"><span class="settings-label">Deep Dive tracking</span><button class="settings-toggle" id="deep-dive-toggle" type="button" aria-pressed="${deepDiveActive}" ${deepDiveAvailable ? '' : 'disabled'}>${status}</button></div>
@@ -584,7 +595,7 @@ async function showSettings() {
   else await autosaveSessionContent.flush();
   state.view = 'settings';
   state.menuOpen = false;
-  await refreshTrackingSettings();
+  await Promise.all([refreshTrackingSettings(), refreshShortcutStatus()]);
   await render();
 }
 
@@ -672,7 +683,7 @@ async function render() {
 
 async function initialize() {
   state.currentNote = await ensureInitialGlobalNote();
-  await refreshTrackingSettings();
+  await Promise.all([refreshTrackingSettings(), refreshShortcutStatus()]);
   await render();
 }
 
