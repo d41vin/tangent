@@ -73,6 +73,8 @@ button { color: inherit; }
 .note-row { display: block; width: 100%; padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; }
 .note-row-title { display: block; overflow: hidden; color: var(--text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .note-row-meta { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.note-row-snippet, .search-row-snippet { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.note-row-snippet mark, .search-row-snippet mark { background: transparent; color: var(--text); font-weight: 600; }
 .session-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
 .session-row-main { min-width: 0; flex: 1; padding: 13px 8px 13px 16px; text-align: left; }
 .session-row:hover, .session-row:focus-within { background: var(--hover); }
