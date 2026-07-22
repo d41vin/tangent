@@ -49,3 +49,6 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 
 ## Session 9 - Search affordance and alignment pass
 - [x] Added a custom monochrome search clear control and standardized icon geometry, insets, and vertical alignment across the panel.
+
+## Session 10 - Recording lifecycle reliability
+- [x] Replaced worker-memory panel tracking with restart-safe, Chrome-validated session state so an open side panel continues recording after a service-worker suspension.

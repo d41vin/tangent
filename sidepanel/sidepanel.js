@@ -28,7 +28,6 @@ import { getFaviconUrl } from '../lib/favicon.js';
 import { formatNoteForExport, markdownFilename } from '../lib/formatter.js';
 
 const app = document.querySelector('#app');
-const panelPort = chrome.runtime.connect({ name: 'tangent-panel' });
 const PANEL_HEARTBEAT_MS = 20_000;
 const inIncognitoContext = Boolean(chrome.extension?.inIncognitoContext);
 const state = {
@@ -60,24 +59,42 @@ function requestFocus(selector) {
   pendingFocusSelector = selector;
 }
 
-function publishPanelState() {
-  panelPort.postMessage({
-    type: 'panel-state',
-    mode: state.mode,
-    sessionId: state.mode === 'sessions' ? state.currentSession?.id ?? null : null,
-    inIncognito: state.inIncognitoContext,
-  });
+async function publishPanelState() {
+  const sessionId = state.mode === 'sessions' ? state.currentSession?.id ?? null : null;
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'panel-state',
+      mode: state.mode,
+      sessionId,
+      inIncognito: state.inIncognitoContext,
+    });
+    // Ignore a response for a view that changed while the message was in flight.
+    const stillCurrent = state.mode === 'sessions'
+      ? state.currentSession?.id === sessionId
+      : sessionId === null;
+    if (!stillCurrent || state.recordingActive === Boolean(response?.recording)) return;
+
+    state.recordingActive = Boolean(response?.recording);
+    if (state.mode === 'sessions' && state.currentSession) render();
+  } catch (error) {
+    // The next heartbeat will register this visible panel once Chrome can wake
+    // the worker again. Do not leave a stale Recording label in the meantime.
+    console.warn('Tangent could not publish panel state:', error);
+    if (state.recordingActive) {
+      state.recordingActive = false;
+      if (state.mode === 'sessions' && state.currentSession) render();
+    }
+  }
 }
 
-function captureActiveTabForSession() {
-  panelPort.postMessage({ type: 'capture-active-tab' });
+async function captureActiveTabForSession() {
+  await publishPanelState();
+  try {
+    await chrome.runtime.sendMessage({ type: 'capture-active-tab' });
+  } catch (error) {
+    console.warn('Tangent could not capture the active tab:', error);
+  }
 }
-
-panelPort.onMessage.addListener((message) => {
-  if (message?.type !== 'tracking-state' || state.recordingActive === message.recording) return;
-  state.recordingActive = message.recording;
-  if (state.mode === 'sessions' && state.currentSession) render();
-});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
@@ -115,9 +132,9 @@ async function refreshShortcutStatus() {
   state.shortcut = actionCommand?.shortcut ?? '';
 }
 
-// Chrome 114+ does not keep a worker alive merely because a port is open.
-// While the visible Sessions panel is actively recording, a tiny state message
-// keeps that live panel signal reliable without persisting stale state.
+// The worker may stop at any time. This heartbeat re-registers a visible panel
+// in session storage, while the worker validates it against Chrome's live
+// SIDE_PANEL contexts before recording anything.
 window.setInterval(() => {
   if (state.mode === 'sessions' && state.currentSession) publishPanelState();
 }, PANEL_HEARTBEAT_MS);
@@ -405,7 +422,7 @@ async function showSessionEditor() {
   state.sessionContextExpanded = false;
   disarmLinkRemove();
   await render();
-  if (state.currentSession) captureActiveTabForSession();
+  if (state.currentSession) await captureActiveTabForSession();
 }
 
 function closeMenu({ restoreFocus = false } = {}) {
@@ -815,7 +832,7 @@ function bindSearch() {
     state.sessionContextExpanded = false;
     state.searchQuery = '';
     await render();
-    captureActiveTabForSession();
+    await captureActiveTabForSession();
   }));
   syncClearButton();
   applySearchFilter();
@@ -864,7 +881,7 @@ async function createAndOpenSession() {
   state.view = 'editor';
   state.sessionContextExpanded = false;
   await render();
-  captureActiveTabForSession();
+  await captureActiveTabForSession();
 }
 
 async function createAndOpenNote() {
@@ -886,7 +903,7 @@ function bindSessionList() {
     state.view = 'editor';
     state.sessionContextExpanded = false;
     await render();
-    captureActiveTabForSession();
+    await captureActiveTabForSession();
   }));
   document.querySelectorAll('[data-pin-session-id]').forEach((button) => button.addEventListener('click', async () => {
     await toggleSessionPinned(button.dataset.pinSessionId);

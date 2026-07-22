@@ -6,8 +6,7 @@ chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error('Unable to configure Tangent side panel:', error));
 
-const PANEL_PORT_NAME = 'tangent-panel';
-const panelPorts = new Map();
+const PANEL_STATES_KEY = 'openPanelStates';
 let pendingLinkWrite = Promise.resolve();
 
 function reportError(context, error) {
@@ -44,8 +43,45 @@ async function getTrackingSettings() {
   };
 }
 
-function hasPanelOpenOnActiveSession(activeSessionId) {
-  return [...panelPorts.values()].some((panel) => (
+async function getOpenPanelStates() {
+  const [contexts, { [PANEL_STATES_KEY]: savedStates = {} }] = await Promise.all([
+    chrome.runtime.getContexts({ contextTypes: ['SIDE_PANEL'] }),
+    chrome.storage.session.get(PANEL_STATES_KEY),
+  ]);
+  const openDocumentIds = new Set(contexts
+    .map((context) => context.documentId)
+    .filter((documentId) => typeof documentId === 'string'));
+  const openStates = Object.fromEntries(Object.entries(savedStates)
+    .filter(([documentId]) => openDocumentIds.has(documentId)));
+
+  // A side panel can disappear without a final message. Chrome's live context
+  // list is authoritative, so discard those stale session-only entries.
+  if (Object.keys(openStates).length !== Object.keys(savedStates).length) {
+    await chrome.storage.session.set({ [PANEL_STATES_KEY]: openStates });
+  }
+  return openStates;
+}
+
+async function setPanelState(sender, message) {
+  const documentId = sender.documentId;
+  if (typeof documentId !== 'string') return false;
+
+  const { [PANEL_STATES_KEY]: savedStates = {} } = await chrome.storage.session.get(PANEL_STATES_KEY);
+  await chrome.storage.session.set({
+    [PANEL_STATES_KEY]: {
+      ...savedStates,
+      [documentId]: {
+        mode: message.mode === 'sessions' ? 'sessions' : 'global',
+        sessionId: typeof message.sessionId === 'string' ? message.sessionId : null,
+      },
+    },
+  });
+  return true;
+}
+
+async function hasPanelOpenOnActiveSession(activeSessionId) {
+  const panelStates = await getOpenPanelStates();
+  return Object.values(panelStates).some((panel) => (
     panel.mode === 'sessions' && panel.sessionId === activeSessionId
   ));
 }
@@ -69,32 +105,16 @@ async function updateToolbarBadge() {
 
   const { activeSession } = await getActiveSessionData();
   const { deepDiveTracking, trackingPaused } = await getTrackingSettings();
+  const panelStates = await getOpenPanelStates();
   const showBadge = Boolean(activeSession)
     && !tab.incognito
     && deepDiveTracking
     && !trackingPaused
-    && panelPorts.size === 0;
+    && Object.keys(panelStates).length === 0;
 
   await chrome.action.setBadgeText({ tabId: tab.id, text: showBadge ? '•' : '' });
   if (showBadge) {
     await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#22c55e' });
-  }
-}
-
-async function notifyPanelTrackingState() {
-  const { activeSessionId, activeSession } = await getActiveSessionData();
-  for (const [port, panel] of panelPorts) {
-    try {
-      port.postMessage({
-        type: 'tracking-state',
-        recording: Boolean(activeSession)
-          && panel.mode === 'sessions'
-          && panel.sessionId === activeSessionId,
-      });
-    } catch (error) {
-      // A disconnect can race this broadcast; onDisconnect performs cleanup.
-      reportError('could not notify panel of tracking state', error);
-    }
   }
 }
 
@@ -198,7 +218,30 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'panel-state') {
+    setPanelState(sender, message)
+      .then(async (registered) => {
+        const { activeSessionId, activeSession } = await getActiveSessionData();
+        const recording = registered
+          && Boolean(activeSession)
+          && message.mode === 'sessions'
+          && message.sessionId === activeSessionId;
+        await updateToolbarBadge();
+        sendResponse({ ok: true, recording, sessionId: message.sessionId ?? null });
+      })
+      .catch((error) => {
+        reportError('could not update panel state', error);
+        sendResponse({ ok: false, recording: false, sessionId: message.sessionId ?? null });
+      });
+    return true;
+  }
+
+  if (message?.type === 'capture-active-tab') {
+    runSafely('could not capture active tab for new session', recordFocusedActiveTab);
+    return undefined;
+  }
+
   if (message?.type !== 'remove-session-link') return undefined;
 
   removeLinkFromSession(message.sessionId, message.url)
@@ -210,47 +253,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== PANEL_PORT_NAME) return;
-
-  panelPorts.set(port, {
-    mode: 'global',
-    sessionId: null,
-    inIncognito: Boolean(port.sender?.tab?.incognito),
-  });
-  runSafely('could not update panel tracking state', notifyPanelTrackingState);
-  runSafely('could not update toolbar badge', updateToolbarBadge);
-
-  port.onMessage.addListener((message) => {
-    if (message?.type === 'panel-state') {
-      panelPorts.set(port, {
-        mode: message.mode === 'sessions' ? 'sessions' : 'global',
-        sessionId: typeof message.sessionId === 'string' ? message.sessionId : null,
-        inIncognito: message.inIncognito === true,
-      });
-      runSafely('could not update panel tracking state', notifyPanelTrackingState);
-      runSafely('could not update toolbar badge', updateToolbarBadge);
-      return;
-    }
-
-    if (message?.type === 'capture-active-tab') {
-      runSafely('could not capture active tab for new session', recordFocusedActiveTab);
-    }
-  });
-
-  port.onDisconnect.addListener(() => {
-    panelPorts.delete(port);
-    runSafely('could not update panel tracking state', notifyPanelTrackingState);
-    runSafely('could not update toolbar badge', updateToolbarBadge);
-  });
-});
-
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
-
-  if (changes.activeSessionId || changes.sessions) {
-    runSafely('could not update panel tracking state', notifyPanelTrackingState);
-  }
 
   if (changes.activeSessionId || changes.sessions || changes.settings || changes.trackingPaused) {
     runSafely('could not update toolbar badge', updateToolbarBadge);
