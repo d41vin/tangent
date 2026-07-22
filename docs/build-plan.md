@@ -31,8 +31,8 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 ## Session 7 - UI/UX overhaul + backup
 - [x] #5: Fixed delete confirmation being dismissed by the menu focusout race
 - [x] #1: Recording status shown inline with the session metadata line
-- [x] #2.1: Item actions (⋮) moved to the title row; settings gear surfaced in the header
-- [x] #3: Context-aware + button added to the header (order: + ☰ 🔍 ⚙)
+- [x] #2.1: Item actions (kebab) moved to the title row; settings gear surfaced in the header
+- [x] #3: Context-aware + button added to the header (order: +, list, search, settings)
 - [x] #4: List button toggles between list and editor with icon change
 - [x] #7: + New moved into the list back-button row
 - [x] #13a: Per-tab search input in the list views
@@ -42,5 +42,7 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 - [x] #10: Global note pinning parity with Sessions
 - [x] #11: Per-link removal in the context accordion (tap-to-confirm)
 - [x] Backup/restore: JSON export + destructive import in Settings
-- [ ] #12: Cross-panel live content sync — deferred, not built
+- [ ] #12: Cross-panel live content sync - deferred, not built
 
+## Session 8 - Icon and interaction refinement
+- [x] Icon system: normalized header, navigation, context, and note-action SVGs; unified action labels; removed Chrome's native search cancel decoration; added monochrome pressed states.

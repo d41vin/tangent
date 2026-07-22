@@ -162,30 +162,36 @@ function dateTime(timestamp) {
 function menuMarkup() {
   if (!state.menuOpen) return '';
   const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
-  return `<div class="menu" id="actions-menu" role="menu" aria-label="${itemName} actions">
+  return `<div class="menu" id="actions-menu" role="menu" aria-label="More actions">
     <button class="menu-item" id="copy-button" type="button" role="menuitem">${COPY_ICON}<span>Copy All</span></button>
     <button class="menu-item" id="download-button" type="button" role="menuitem">${DOWNLOAD_ICON}<span>Download as Markdown</span></button>
-    <button class="menu-item" id="clear-button" type="button" role="menuitem">${CLEAR_ICON}<span>Clear Note Text</span></button>
+    <button class="menu-item" id="clear-button" type="button" role="menuitem">${CLEAR_ICON}<span>Clear text</span></button>
     <button class="menu-item menu-item-danger" id="delete-button" type="button" role="menuitem">${DELETE_ICON}<span>${state.deleteArmed ? `Confirm delete ${itemName}` : `Delete ${itemName}`}</span></button>
   </div>`;
 }
 
 function itemActionsMarkup() {
-  const itemName = state.mode === 'sessions' ? 'Session' : 'Note';
   return `<div class="item-actions">
-    <button class="icon-button" id="menu-button" type="button" aria-haspopup="menu" aria-controls="actions-menu" aria-expanded="${state.menuOpen}" aria-label="${itemName} actions" title="${itemName} actions">⋮</button>
+    <button class="icon-button${state.menuOpen ? ' is-active' : ''}" id="menu-button" type="button" aria-haspopup="menu" aria-controls="actions-menu" aria-expanded="${state.menuOpen}" aria-label="More actions" title="More actions">${MORE_ACTIONS_ICON}</button>
     ${menuMarkup()}
   </div>`;
 }
 
-const SETTINGS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6l1.4 2.5 2.8-.5.5 2.8 2.5 1.4-1.3 2.5 1.3 2.5-2.5 1.4-.5 2.8-2.8-.5L12 21.4l-1.4-2.5-2.8.5-.5-2.8-2.5-1.4 1.3-2.5-1.3-2.5 2.5-1.4.5-2.8 2.8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-const PLUS_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
-const SEARCH_ICON = '<svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.4 4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
-const MENU_ICON_ATTRS = 'class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
-const COPY_ICON = `<svg ${MENU_ICON_ATTRS}><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M5 15.5V6a2 2 0 0 1 2-2h8.5"/></svg>`;
-const DOWNLOAD_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>`;
-const CLEAR_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M9 20h10"/><path d="M15.5 5.5l3 3-8 8H7l-2.5-2.5a1.5 1.5 0 0 1 0-2z"/></svg>`;
-const DELETE_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M5 7h14"/><path d="M9 7V5h6v2"/><path d="M7.5 7l.8 12h7.4l.8-12"/></svg>`;
+const HEADER_ICON_ATTRS = 'class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const MENU_ICON_ATTRS = 'class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const SETTINGS_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M19.875 6.27A2.225 2.225 0 0 1 21 8.218v7.284c0 .809-.443 1.555-1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1-2.184 0l-6.75-4.27A2.225 2.225 0 0 1 3 15.502V8.217c0-.809.443-1.554 1.158-1.947l6.75-3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033"/><circle cx="12" cy="12" r="3"/></svg>`;
+const PLUS_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M12 5v14M5 12h14"/></svg>`;
+const SEARCH_ICON = `<svg ${HEADER_ICON_ATTRS}><circle cx="10" cy="10" r="7"/><path d="m21 21-6-6"/></svg>`;
+const LIST_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M4 6h16M4 12h16M4 18h16"/></svg>`;
+const CLOSE_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="m6 6 12 12M18 6 6 18"/></svg>`;
+const BACK_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M5 12h14M5 12l6 6M5 12l6-6"/></svg>`;
+const MORE_ACTIONS_ICON = `<svg ${HEADER_ICON_ATTRS}><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
+const CARET_RIGHT_ICON = '<svg class="context-caret" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6c0-.852.986-1.297 1.623-.783l.084.076 6 6a1 1 0 0 1 .083 1.32l-.083.094-6 6a1 1 0 0 1-1.707-.707z"/></svg>';
+const CARET_DOWN_ICON = '<svg class="context-caret" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 9c.852 0 1.297.986.783 1.623l-.076.084-6 6a1 1 0 0 1-1.32.083l-.094-.083-6-6A1 1 0 0 1 6 9z"/></svg>';
+const COPY_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2.005 2.005 0 0 1 3 15V5a2 2 0 0 1 2-2h10c.75 0 1.158.385 1.5 1"/></svg>`;
+const DOWNLOAD_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>`;
+const CLEAR_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M19 20H8.5l-4.21-4.3a1 1 0 0 1 0-1.41l10-10a1 1 0 0 1 1.41 0l5 5a1 1 0 0 1 0 1.41l-9.2 9.3M18 13.3 11.7 7"/></svg>`;
+const DELETE_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>`;
 const LINK_REMOVE_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const LINK_CONFIRM_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"/></svg>';
 
@@ -200,7 +206,7 @@ function shellMarkup(content) {
         <button class="tab" id="sessions-tab" role="tab" aria-controls="sessions-view" aria-selected="${state.mode === 'sessions'}" tabindex="${state.mode === 'sessions' ? '0' : '-1'}">Sessions</button>
       </div>
       <button class="icon-button" id="new-button" type="button" aria-label="${newLabel}" title="${newLabel}">${PLUS_ICON}</button>
-      <button class="icon-button${listActive ? ' is-active' : ''}" id="list-button" type="button" aria-pressed="${listActive}" aria-label="${listActive ? 'Back to editor' : 'Open list view'}" title="${listActive ? 'Back to editor' : 'Open list view'}">${listActive ? '✕' : '☰'}</button>
+      <button class="icon-button${listActive ? ' is-active' : ''}" id="list-button" type="button" aria-pressed="${listActive}" aria-label="${listActive ? 'Back to editor' : 'Open list view'}" title="${listActive ? 'Back to editor' : 'Open list view'}">${listActive ? CLOSE_ICON : LIST_ICON}</button>
       <button class="icon-button${searchActive ? ' is-active' : ''}" id="search-button" type="button" aria-pressed="${searchActive}" aria-label="Search everything" title="Search everything">${SEARCH_ICON}</button>
       <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">${SETTINGS_ICON}</button>
     </header>${content}</div>`;
@@ -231,8 +237,8 @@ function globalListMarkup(notes) {
       <button class="pin-button${note.pinned ? ' is-pinned' : ''}" type="button" data-pin-note-id="${escapeHtml(note.id)}" aria-label="${note.pinned ? 'Unpin' : 'Pin'} ${escapeHtml(note.title)}" aria-pressed="${Boolean(note.pinned)}" title="${note.pinned ? 'Unpin note' : 'Pin note'}"><svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l1 7 3 3H5l3-3 1-7Z" fill="${note.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path></svg></button>
     </div>`).join('');
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
-    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
-    <div class="list-search-row"><input class="list-search" id="list-search" type="search" placeholder="Search notes" aria-label="Search notes" value="${escapeHtml(state.listQuery)}"></div>
+    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
+    <div class="list-search-row"><input class="list-search" id="list-search" type="text" placeholder="Search notes" aria-label="Search notes" autocomplete="off" spellcheck="false" value="${escapeHtml(state.listQuery)}"></div>
     <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching notes.</p></div>
   </section>`);
 }
@@ -259,7 +265,7 @@ function sessionEditorMarkup() {
     </div>
     <textarea class="note-canvas" id="session-content" aria-label="${escapeHtml(session.title)}" placeholder="Jot something down…" spellcheck="true">${escapeHtml(session.content)}</textarea>
     <section class="session-context" aria-label="Session context">
-      <button class="context-toggle" id="context-toggle" type="button" aria-controls="context-body" aria-expanded="${state.sessionContextExpanded}">${state.sessionContextExpanded ? '▾' : '▸'} Session context · ${session.links.length} links</button>
+      <button class="context-toggle" id="context-toggle" type="button" aria-controls="context-body" aria-expanded="${state.sessionContextExpanded}">${state.sessionContextExpanded ? CARET_DOWN_ICON : CARET_RIGHT_ICON}<span>Session context · ${session.links.length} links</span></button>
       <div class="context-expand" id="context-body" aria-hidden="${!state.sessionContextExpanded}"><div class="context-expand-inner"><div class="context-body">${context}</div></div></div>
     </section>
   </section>`);
@@ -279,8 +285,8 @@ function sessionListMarkup(sessions) {
     </div>`;
   }).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions history list">
-    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Sessions</span><button class="text-button list-new-button" id="new-session-button" type="button">+ New Session</button></header>
-    <div class="list-search-row"><input class="list-search" id="list-search" type="search" placeholder="Search sessions" aria-label="Search sessions" value="${escapeHtml(state.listQuery)}"></div>
+    <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Sessions</span><button class="text-button list-new-button" id="new-session-button" type="button">+ New Session</button></header>
+    <div class="list-search-row"><input class="list-search" id="list-search" type="text" placeholder="Search sessions" aria-label="Search sessions" autocomplete="off" spellcheck="false" value="${escapeHtml(state.listQuery)}"></div>
     <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching sessions.</p></div>
   </section>`);
 }
@@ -303,7 +309,7 @@ function settingsMarkup() {
     : '';
 
   return shellMarkup(`<section class="view" id="${state.mode === 'sessions' ? 'sessions-view' : 'global-view'}" role="tabpanel" aria-label="Settings">
-    <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Settings</span></header>
+    <header class="view-header"><button class="icon-button" id="settings-back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Settings</span></header>
     <div class="settings-list">
       <section class="settings-item">
         <div class="settings-item-header"><label class="settings-label" for="theme-select">Theme</label><select class="settings-select" id="theme-select" aria-label="Theme"><option value="system" ${state.theme === 'system' ? 'selected' : ''}>System</option><option value="light" ${state.theme === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${state.theme === 'dark' ? 'selected' : ''}>Dark</option></select></div>
@@ -347,8 +353,8 @@ function searchMarkup(notes, sessions) {
     </button>`;
   }).join('');
   return shellMarkup(`<section class="view" id="search-view" role="tabpanel" aria-label="Search everything">
-    <header class="view-header"><button class="icon-button" id="search-back-button" type="button" aria-label="Back to editor">←</button><span class="view-title">Search everything</span></header>
-    <div class="list-search-row"><input class="list-search" id="unified-search" type="search" placeholder="Search all notes and sessions" aria-label="Search all notes and sessions" value="${escapeHtml(state.searchQuery)}"></div>
+    <header class="view-header"><button class="icon-button" id="search-back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Search everything</span></header>
+    <div class="list-search-row"><input class="list-search" id="unified-search" type="text" placeholder="Search all notes and sessions" aria-label="Search all notes and sessions" autocomplete="off" spellcheck="false" value="${escapeHtml(state.searchQuery)}"></div>
     <div class="search-results" id="search-results">
       <p class="search-hint" id="search-hint">Search across every Global note and Session at once.</p>
       <p class="list-empty" id="search-empty" hidden>No matches.</p>

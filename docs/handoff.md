@@ -2,52 +2,37 @@
 
 ## Status
 
-v1 is complete. Session 7 delivered the UI/UX overhaul plus JSON backup/restore. A post-review fix commit, `bfa52d0`, hardened restore validation, protected the new-item autosave path, and serialized context-link removal with live tracking. Only #12 (cross-panel live content sync) remains deliberately deferred.
+v1 is complete. Session 8 refined the icon system and interaction feedback. Cross-panel live content sync (#12) remains deliberately deferred.
 
-## Delivered in Session 7
+## Delivered in Session 8
 
-- Recording status is inline with session metadata.
-- Item actions moved to the editor title row; settings is a header control.
-- Header controls are New, List, Search, and Settings. The List and Search controls toggle back to the editor.
-- The list header contains the New action; list views contain per-tab search.
-- Unified search groups results under Global Notes and Sessions.
-- Action menus use inline monochrome SVG icons.
-- Context lists are capped at 40vh and use themed scrollbars.
-- Global notes now support pinning and pinned-first sorting.
-- Context links can be removed with tap-to-arm/tap-to-confirm, without affecting normal link navigation.
-- Settings can export a timestamped JSON backup and restore one with tap-to-arm/tap-to-confirm.
-
-## Post-review fixes (`bfa52d0`)
-
-- Backup import now verifies the Tangent app/version envelope and data shape before it can be armed or mutate storage. Restore replaces known Tangent keys only.
-- The header New button flushes the 500ms autosave before creating a note or session.
-- Context-link removal is handled by the background service worker and shares its serialized tracking write queue, preventing a race with live page capture.
+- Adopted a consistent inline-SVG treatment for header, list/close, back, context-caret, and note-action controls; no icon package was added.
+- Updated Search and Settings to the supplied Tabler-inspired 24px stroke geometry, scaled consistently to Tangent's compact 17px header controls.
+- Replaced remaining Unicode toolbar/navigation symbols with SVG so icon weight, alignment, and color inherit consistently across themes.
+- Unified the global-note and session-note overflow trigger as **More actions**. Shared action wording is now also mode-neutral (`Clear text`); destructive delete text still names its target.
+- Changed the per-tab and unified search inputs to plain text inputs with search labels, removing Chrome's blue native cancel control.
+- Added a restrained monochrome pressed state to icon, action, list, and context controls, matching the selected-tab contrast while keeping green exclusive to recording.
 
 ## Important decisions
 
-- Unified search groups results by origin instead of adding per-row badges.
-- Search filters client-side by toggling `hidden`, preserving focus and avoiding unnecessary re-renders.
-- All new icons are inline monochrome SVG; green remains reserved for recording.
+- The supplied SVGs were used as geometry references, adapted to one 1.75px stroke system rather than importing Tabler.
+- The icon reference set covers this scope. Existing pin, remove-link, and confirmation glyphs remain bespoke inline symbols; no further SVGs are needed.
 - No new manifest permissions or dependencies were added.
-- Cross-panel live content sync (#12) remains deferred by design.
 
 ## Verification completed
 
-- `node --check` passed for `sidepanel/sidepanel.js`, `lib/storage.js`, and `background/background.js`.
-- Mocked tests verified valid backup restore, malformed/non-Tangent backup rejection before storage mutation, and background-queued context-link removal.
-- `git diff --check` passed for the post-review commit.
+- `node --check sidepanel/sidepanel.js` passed.
+- `git diff --check` passed.
+- Confirmed the removed native-search behavior structurally: no `type="search"` input remains, and all prior Unicode toolbar/navigation icons were replaced.
 
 ## Required manual verification
 
 1. Reload the unpacked extension at `chrome://extensions`.
-2. Check the header order and toggles: New, List, Search, Settings.
-3. Check per-tab and unified search, including opening the matching item.
-4. Check global-note pinning and context-list scrolling.
-5. Check context-link removal still leaves the main link opening in a new tab.
-6. Export a backup, make changes, restore it, and verify all notes/sessions return. Also confirm arbitrary JSON cannot be armed for restore.
-7. Type in a note/session and immediately press header New; reopen the prior item and verify its text was saved.
-8. While a session records, remove a context link and navigate to another page; confirm the removed link stays removed and the new page remains recorded.
+2. Check the header at light and dark themes: New, List/Close, Search, and Settings should appear equally weighted; selected List/Search and an open More-actions button should use the primary text color.
+3. Open More actions from both a Global note and a Session: its tooltip/accessible name should be **More actions**, and the four menu icons should align and inherit the same hover/pressed treatment.
+4. Type into both a list search and unified search: the blue Chrome cancel button should not appear, and filtering/opening results should work as before.
+5. Expand and collapse Session context to confirm the new caret has the correct direction and alignment.
 
 ## Next session
 
-Preserve the user's existing uncommitted changes in `docs/icons.md` and `sidepanel/sidepanel.css`; `docs/icons.md` is reserved for the next session. Run the manual checks above before pursuing any new work. If #12 is desired, it is the only unchecked item in `docs/build-plan.md`.
+Run the manual checks above before pursuing new work. If #12 is desired, it remains the only deferred feature in `docs/build-plan.md`.
