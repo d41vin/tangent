@@ -14,7 +14,6 @@ import {
   openSession,
   renameGlobalNote,
   renameSession,
-  removeSessionLink,
   saveGlobalNoteContent,
   saveSessionContent,
   getTrackingSettings,
@@ -23,6 +22,7 @@ import {
   setTrackingPaused,
   toggleGlobalNotePinned,
   toggleSessionPinned,
+  validateBackupPayload,
 } from '../lib/storage.js';
 import { getFaviconUrl } from '../lib/favicon.js';
 import { formatNoteForExport, markdownFilename } from '../lib/formatter.js';
@@ -460,7 +460,9 @@ function bindShell() {
     }
   }));
   const newButton = document.querySelector('#new-button');
-  if (newButton) newButton.addEventListener('click', createContextItem);
+  if (newButton) newButton.addEventListener('click', () => {
+    createContextItem().catch((error) => console.error('Unable to create item:', error));
+  });
   document.querySelector('#list-button').addEventListener('click', async () => {
     await flushCurrentAutosave();
     // The list button doubles as open/close: from the list (or settings) it
@@ -581,7 +583,13 @@ function disarmLinkRemove() {
 async function handleRemoveLink(url) {
   if (state.linkRemoveArmed === url) {
     disarmLinkRemove();
-    const updated = await removeSessionLink(state.currentSession.id, url);
+    const response = await chrome.runtime.sendMessage({
+      type: 'remove-session-link',
+      sessionId: state.currentSession.id,
+      url,
+    });
+    if (!response?.ok) throw new Error(response?.error || 'Could not remove the link.');
+    const updated = response.session;
     if (updated) state.currentSession = updated;
     await render();
     return;
@@ -823,7 +831,8 @@ async function createAndOpenNote() {
   await render();
 }
 
-function createContextItem() {
+async function createContextItem() {
+  await flushCurrentAutosave();
   return state.mode === 'sessions' ? createAndOpenSession() : createAndOpenNote();
 }
 
@@ -890,7 +899,9 @@ function handleImportFile(input) {
   reader.onload = async () => {
     if (importArmTimeoutId) clearTimeout(importArmTimeoutId);
     try {
-      state.pendingImport = JSON.parse(String(reader.result));
+      const payload = JSON.parse(String(reader.result));
+      validateBackupPayload(payload);
+      state.pendingImport = payload;
       state.settingsNotice = 'Ready to restore. Tap Confirm to replace all current data.';
       importArmTimeoutId = setTimeout(() => {
         clearImportState();
@@ -898,7 +909,7 @@ function handleImportFile(input) {
       }, 8000);
     } catch (error) {
       state.pendingImport = null;
-      state.settingsNotice = 'That file could not be read as JSON.';
+      state.settingsNotice = error.message || 'That file could not be read as JSON.';
     }
     await render();
   };

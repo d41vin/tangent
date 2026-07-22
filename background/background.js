@@ -146,6 +146,23 @@ async function appendFocusedTabToActiveSession(tab) {
   });
 }
 
+async function removeLinkFromSession(sessionId, url) {
+  if (typeof sessionId !== 'string' || typeof url !== 'string') return null;
+
+  return queueLinkWrite(async () => {
+    const { sessions } = await getActiveSessionData();
+    const existing = sessions[sessionId];
+    if (!existing) return null;
+
+    const links = (existing.links ?? []).filter((link) => link.url !== url);
+    const updatedSession = { ...existing, links, updatedAt: Date.now() };
+    await chrome.storage.local.set({
+      sessions: { ...sessions, [sessionId]: updatedSession },
+    });
+    return updatedSession;
+  });
+}
+
 async function recordFocusedActiveTab() {
   const tab = await getFocusedActiveTab();
   return appendFocusedTabToActiveSession(tab);
@@ -179,6 +196,18 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
       await updateToolbarBadge();
     });
   }
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'remove-session-link') return undefined;
+
+  removeLinkFromSession(message.sessionId, message.url)
+    .then((session) => sendResponse({ ok: true, session }))
+    .catch((error) => {
+      reportError('could not remove session link', error);
+      sendResponse({ ok: false, error: 'Could not remove the link. Please try again.' });
+    });
+  return true;
 });
 
 chrome.runtime.onConnect.addListener((port) => {
