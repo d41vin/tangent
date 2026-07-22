@@ -46,3 +46,6 @@ Grouped into 6 Codex sessions. Check off each phase as it is completed - this fi
 
 ## Session 8 - Icon and interaction refinement
 - [x] Icon system: normalized header, navigation, context, and note-action SVGs; unified action labels; removed Chrome's native search cancel decoration; added monochrome pressed states.
+
+## Session 9 - Search affordance and alignment pass
+- [x] Added a custom monochrome search clear control and standardized icon geometry, insets, and vertical alignment across the panel.

@@ -10,6 +10,8 @@
   --radius: 4px;
   --radius-sm: 2px;
   --radius-lg: 6px;
+  --control-size: 32px;
+  --icon-size: 16px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
 }
 
@@ -144,8 +146,10 @@ button {
 }
 
 .tab {
+  display: grid;
   position: relative;
-  padding: 0 9px;
+  place-items: center;
+  padding: 0 8px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -166,8 +170,8 @@ button {
 
 .icon-button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: var(--control-size);
+  height: var(--control-size);
   border-radius: var(--radius);
   place-items: center;
   color: var(--muted);
@@ -178,8 +182,8 @@ button {
 
 .header-icon {
   display: block;
-  width: 17px;
-  height: 17px;
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
 .icon-button.is-active {
@@ -191,6 +195,7 @@ button {
 .text-button:active,
 .menu-item:active,
 .pin-button:active,
+.search-clear:active,
 .context-toggle:active,
 .search-row:active,
 .session-row-main:active,
@@ -204,6 +209,7 @@ button {
 .note-row:hover,
 .menu-item:hover,
 .pin-button:hover,
+.search-clear:hover,
 .search-row:hover {
   background: var(--hover);
 }
@@ -220,6 +226,7 @@ button {
 .settings-toggle:focus-visible,
 .settings-select:focus-visible,
 .pin-button:focus-visible,
+.search-clear:focus-visible,
 .context-link:focus-visible,
 .search-row:focus-visible {
   outline: 1px solid var(--text);
@@ -249,7 +256,7 @@ button {
 }
 
 .editor-header {
-  padding: 12px 16px 0;
+  padding: 12px 8px 0 16px;
 }
 
 .editor-title-row {
@@ -332,9 +339,13 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+.search-field {
+  position: relative;
+}
+
 .list-search {
   width: 100%;
-  padding: 6px 9px;
+  padding: 6px 34px 6px 9px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -348,6 +359,28 @@ button {
 .list-search:focus-visible {
   outline: 1px solid var(--text);
   outline-offset: -1px;
+}
+
+.search-clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  place-items: center;
+  transform: translateY(-50%);
+}
+
+.search-clear-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .list-empty {
@@ -494,8 +527,9 @@ button {
 
 .pin-button {
   display: grid;
-  width: 42px;
-  flex: 0 0 42px;
+  width: var(--control-size);
+  flex: 0 0 var(--control-size);
+  margin-right: 8px;
   place-items: center;
   border: 0;
   background: transparent;
@@ -508,8 +542,8 @@ button {
 }
 
 .pin-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
 .session-editor-header {
@@ -744,8 +778,8 @@ button {
 }
 
 .menu-icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-size);
+  height: var(--icon-size);
   flex: 0 0 auto;
   color: var(--muted);
 }

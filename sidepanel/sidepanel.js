@@ -183,7 +183,9 @@ const SETTINGS_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M19.875 6.27A2.225 2.2
 const PLUS_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M12 5v14M5 12h14"/></svg>`;
 const SEARCH_ICON = `<svg ${HEADER_ICON_ATTRS}><circle cx="10" cy="10" r="7"/><path d="m21 21-6-6"/></svg>`;
 const LIST_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M4 6h16M4 12h16M4 18h16"/></svg>`;
-const CLOSE_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="m6 6 12 12M18 6 6 18"/></svg>`;
+const X_ICON_PATH = '<path d="m6 6 12 12M18 6 6 18"/>';
+const CLOSE_ICON = `<svg ${HEADER_ICON_ATTRS}>${X_ICON_PATH}</svg>`;
+const SEARCH_CLEAR_ICON = `<svg class="search-clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">${X_ICON_PATH}</svg>`;
 const BACK_ICON = `<svg ${HEADER_ICON_ATTRS}><path d="M5 12h14M5 12l6 6M5 12l6-6"/></svg>`;
 const MORE_ACTIONS_ICON = `<svg ${HEADER_ICON_ATTRS}><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
 const CARET_RIGHT_ICON = '<svg class="context-caret" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6c0-.852.986-1.297 1.623-.783l.084.076 6 6a1 1 0 0 1 .083 1.32l-.083.094-6 6a1 1 0 0 1-1.707-.707z"/></svg>';
@@ -194,6 +196,13 @@ const CLEAR_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M19 20H8.5l-4.21-4.3a1 1 0 
 const DELETE_ICON = `<svg ${MENU_ICON_ATTRS}><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>`;
 const LINK_REMOVE_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const LINK_CONFIRM_ICON = '<svg class="link-remove-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"/></svg>';
+
+function searchFieldMarkup(id, placeholder, label, value) {
+  return `<div class="search-field">
+    <input class="list-search" id="${id}" type="text" placeholder="${placeholder}" aria-label="${label}" autocomplete="off" spellcheck="false" value="${escapeHtml(value)}">
+    <button class="search-clear" id="${id}-clear" type="button" aria-label="Clear search" title="Clear search" ${value ? '' : 'hidden'}>${SEARCH_CLEAR_ICON}</button>
+  </div>`;
+}
 
 function shellMarkup(content) {
   const newLabel = state.mode === 'sessions' ? 'New session' : 'New note';
@@ -238,7 +247,7 @@ function globalListMarkup(notes) {
     </div>`).join('');
   return shellMarkup(`<section class="view" id="global-view" role="tabpanel" aria-label="Global notes list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Global Notes</span><button class="text-button list-new-button" id="new-note-button" type="button">+ New Note</button></header>
-    <div class="list-search-row"><input class="list-search" id="list-search" type="text" placeholder="Search notes" aria-label="Search notes" autocomplete="off" spellcheck="false" value="${escapeHtml(state.listQuery)}"></div>
+    <div class="list-search-row">${searchFieldMarkup('list-search', 'Search notes', 'Search notes', state.listQuery)}</div>
     <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching notes.</p></div>
   </section>`);
 }
@@ -286,7 +295,7 @@ function sessionListMarkup(sessions) {
   }).join('');
   return shellMarkup(`<section class="view" id="sessions-view" role="tabpanel" aria-label="Sessions history list">
     <header class="view-header"><button class="icon-button" id="back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Sessions</span><button class="text-button list-new-button" id="new-session-button" type="button">+ New Session</button></header>
-    <div class="list-search-row"><input class="list-search" id="list-search" type="text" placeholder="Search sessions" aria-label="Search sessions" autocomplete="off" spellcheck="false" value="${escapeHtml(state.listQuery)}"></div>
+    <div class="list-search-row">${searchFieldMarkup('list-search', 'Search sessions', 'Search sessions', state.listQuery)}</div>
     <div class="note-list">${rows}<p class="list-empty" id="list-empty" hidden>No matching sessions.</p></div>
   </section>`);
 }
@@ -354,7 +363,7 @@ function searchMarkup(notes, sessions) {
   }).join('');
   return shellMarkup(`<section class="view" id="search-view" role="tabpanel" aria-label="Search everything">
     <header class="view-header"><button class="icon-button" id="search-back-button" type="button" aria-label="Back to editor" title="Back to editor">${BACK_ICON}</button><span class="view-title">Search everything</span></header>
-    <div class="list-search-row"><input class="list-search" id="unified-search" type="text" placeholder="Search all notes and sessions" aria-label="Search all notes and sessions" autocomplete="off" spellcheck="false" value="${escapeHtml(state.searchQuery)}"></div>
+    <div class="list-search-row">${searchFieldMarkup('unified-search', 'Search all notes and sessions', 'Search all notes and sessions', state.searchQuery)}</div>
     <div class="search-results" id="search-results">
       <p class="search-hint" id="search-hint">Search across every Global note and Session at once.</p>
       <p class="list-empty" id="search-empty" hidden>No matches.</p>
@@ -730,10 +739,23 @@ function applyListFilter() {
 function bindListSearch() {
   const search = document.querySelector('#list-search');
   if (!search) return;
+  const clearButton = document.querySelector('#list-search-clear');
+  const syncClearButton = () => {
+    if (clearButton) clearButton.hidden = search.value === '';
+  };
   search.addEventListener('input', (event) => {
     state.listQuery = event.currentTarget.value;
+    syncClearButton();
     applyListFilter();
   });
+  if (clearButton) clearButton.addEventListener('click', () => {
+    search.value = '';
+    state.listQuery = '';
+    syncClearButton();
+    applyListFilter();
+    search.focus();
+  });
+  syncClearButton();
   applyListFilter();
 }
 
@@ -762,9 +784,22 @@ function bindSearch() {
     if (state.mode === 'sessions') await showSessionEditor();
     else await showGlobalEditor();
   });
-  document.querySelector('#unified-search').addEventListener('input', (event) => {
+  const search = document.querySelector('#unified-search');
+  const clearButton = document.querySelector('#unified-search-clear');
+  const syncClearButton = () => {
+    if (clearButton) clearButton.hidden = search.value === '';
+  };
+  search.addEventListener('input', (event) => {
     state.searchQuery = event.currentTarget.value;
+    syncClearButton();
     applySearchFilter();
+  });
+  if (clearButton) clearButton.addEventListener('click', () => {
+    search.value = '';
+    state.searchQuery = '';
+    syncClearButton();
+    applySearchFilter();
+    search.focus();
   });
   document.querySelectorAll('[data-search-note-id]').forEach((button) => button.addEventListener('click', async () => {
     state.mode = 'global';
@@ -782,6 +817,7 @@ function bindSearch() {
     await render();
     captureActiveTabForSession();
   }));
+  syncClearButton();
   applySearchFilter();
 }
 

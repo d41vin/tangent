@@ -2,36 +2,35 @@
 
 ## Status
 
-v1 is complete. Session 8 refined the icon system and interaction feedback. Cross-panel live content sync (#12) remains deliberately deferred.
+v1 is complete. Session 9 finished the search affordance and full icon alignment pass. Cross-panel live content sync (#12) remains deliberately deferred.
 
-## Delivered in Session 8
+## Delivered in Session 9
 
-- Adopted a consistent inline-SVG treatment for header, list/close, back, context-caret, and note-action controls; no icon package was added.
-- Updated Search and Settings to the supplied Tabler-inspired 24px stroke geometry, scaled consistently to Tangent's compact 17px header controls.
-- Replaced remaining Unicode toolbar/navigation symbols with SVG so icon weight, alignment, and color inherit consistently across themes.
-- Unified the global-note and session-note overflow trigger as **More actions**. Shared action wording is now also mode-neutral (`Clear text`); destructive delete text still names its target.
-- Changed the per-tab and unified search inputs to plain text inputs with search labels, removing Chrome's blue native cancel control.
-- Added a restrained monochrome pressed state to icon, action, list, and context controls, matching the selected-tab contrast while keeping green exclusive to recording.
+- Preserved the session-status indicator as a green dot plus **Recording**. This names the live session state clearly; **tracking** remains the separate Deep Dive setting.
+- Reintroduced the search clear affordance as a custom in-field button. It appears only when a query exists, clears and refocuses the same input, and uses the exact same X path as the list-close icon.
+- Standardized the panel's main icon grid: 32px hit areas, 16px primary glyphs, explicit vertical centering for tabs, and consistent 16px visual insets for header text/icons and list pin actions.
+- Normalized editor-header, action-menu, context, link-removal, pin, and search-control alignment without adding any dependencies.
 
-## Important decisions
+## Design decisions
 
-- The supplied SVGs were used as geometry references, adapted to one 1.75px stroke system rather than importing Tabler.
-- The icon reference set covers this scope. Existing pin, remove-link, and confirmation glyphs remain bespoke inline symbols; no further SVGs are needed.
-- No new manifest permissions or dependencies were added.
+- Use **Recording** for the live session label. A dot alone is too ambiguous; **Tracking** would blur live recording with the optional Deep Dive feature.
+- The clear X is muted by default, becomes primary monochrome on hover/press, and never uses Chrome's blue native form-control color.
+- The supplied SVG reference set remains complete for this scope; no new icon assets are needed.
+- For the redesigned favicon, use `#18181b` on `#ffffff`: a dark square with a white T, a small 3-4px corner radius, and no circle. It reads more decisively at 16px and matches Tangent's utilitarian, Swiss-inspired chrome.
 
 ## Verification completed
 
 - `node --check sidepanel/sidepanel.js` passed.
 - `git diff --check` passed.
-- Confirmed the removed native-search behavior structurally: no `type="search"` input remains, and all prior Unicode toolbar/navigation icons were replaced.
+- Confirmed the shared X path is used by both the header close icon and the custom search clear button.
 
 ## Required manual verification
 
 1. Reload the unpacked extension at `chrome://extensions`.
-2. Check the header at light and dark themes: New, List/Close, Search, and Settings should appear equally weighted; selected List/Search and an open More-actions button should use the primary text color.
-3. Open More actions from both a Global note and a Session: its tooltip/accessible name should be **More actions**, and the four menu icons should align and inherit the same hover/pressed treatment.
-4. Type into both a list search and unified search: the blue Chrome cancel button should not appear, and filtering/opening results should work as before.
-5. Expand and collapse Session context to confirm the new caret has the correct direction and alignment.
+2. In both list search and unified search, type a query: a muted monochrome X should appear inside the right edge. Click it and verify the query clears, focus stays in the input, and all results return.
+3. Check Global and Sessions in light and dark themes: the first tab text and the Settings icon should share a 16px visual inset; all header icons and vertical dots should be vertically centered.
+4. Check list pins, context carets, link-remove controls, menu icons, and their neighboring text for even alignment.
+5. Open a recording Session and confirm the green dot plus **Recording** remains on its metadata row.
 
 ## Next session
 
